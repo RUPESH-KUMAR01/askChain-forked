@@ -47,6 +47,25 @@ To set up the project locally:
      pip install -r requirements.txt
      ```
 
+4. **Create .env files**
+   - Create 2 `.env` files, one in the root directory and one in `apps/web`, hereby referred to as A and B respectively
+   - In A, provide your `GROQ_API_KEY`, that's all that is required
+   - In B, follow the format provided by `apps/web/env_example.txt`. Remember to save B in `apps/web/`
+
+5. **Run the Agent Server**
+   - While in the root directory, start the Flask application: `python -m apps.endpoints.ask_endpoints`
+
+6. **Run the web app**
+   - Run the following instructions in sequence from the `apps/web` directory:
+```bash
+npm install
+npx prisma migrate dev
+npx prisma generate client
+npm run dev
+```
+
+Finally, access the app on port 3000
+
 ## Standalone endpoints
 
 **Run a standalone server for the Agents**:
