@@ -1,5 +1,6 @@
 # Logs
 unsloth_compiled_cache
+**/__pycache__/
 logs
 *.log
 npm-debug.log*
