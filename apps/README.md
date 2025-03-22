@@ -1,0 +1,1 @@
+Run `pip install -r requirements.txt` while your virtual environment is active to get the required libraries for running agents and endpoints. Also ensure that you have a `.env` file with your `GROQ_API_KEY`.
