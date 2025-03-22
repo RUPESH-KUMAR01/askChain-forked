@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from collections import defaultdict
 from typing import List
 
-from math_endpoint import math_agent
+from apps.endpoints.ask_endpoints import math_agent
 
 app = Flask(__name__)
 
