@@ -1,10 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useParams } from "next/navigation";
 import { ethers } from "ethers";
-import { ArrowLeft, MessageSquare, ThumbsUp, Send, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  MessageSquare,
+  ThumbsUp,
+  Send,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import Script from "next/script";
 
 import { Button } from "@/components/ui/button";
@@ -29,31 +37,30 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// Import your askPlatform ABI and contract address
 import { askPlatformABI } from "@/lib/abis/askPlatformAbi";
-import { useParams } from "next/navigation";
+
+// Make sure these .env variables are set
 const askPlatformAddress = process.env.NEXT_PUBLIC_ASK_PLATFORM_ADDRESS || "";
 
 export default function QuestionDetail() {
-  // The question's unique ID from route params
-  const params=useParams();
-  const questionId = params?.id
+  // In Next.js 13 with App Router, you can use `useParams()`:
+  const params = useParams();
+  const questionId = params?.id;
 
-  // NextAuth session & wallet address
   const { data: session, status } = useSession();
   const walletAddress = session?.user?.walletAddress;
 
-  // Local state
+  // Local states
   const [question, setQuestion] = useState<any>(null);
   const [answers, setAnswers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // For submitting a new answer
+  // For new answer
   const [answerContent, setAnswerContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // For upvoting
+  // For upvote
   const [showVoteDialog, setShowVoteDialog] = useState(false);
   const [voteInfo, setVoteInfo] = useState<{ ansDbId: string; isUpvote: boolean }>({
     ansDbId: "",
@@ -63,29 +70,28 @@ export default function QuestionDetail() {
   // For "Connect Wallet Required" UI
   const [showConnectWalletDialog, setShowConnectWalletDialog] = useState(false);
 
-  // 1. Fetch question & answers on mount (or if questionId changes)
+  // ---------------------------
+  // 1. On mount, fetch question & answers
+  // ---------------------------
   useEffect(() => {
     if (!questionId) return;
     fetchQuestionData(questionId);
   }, [questionId]);
 
-  // 2. Retrieve question & answers from your backend
+  // Helper to fetch question & answers from your backend
   const fetchQuestionData = async (id: string) => {
     setIsLoading(true);
     try {
       console.log("Fetching question details for ID:", id);
 
       // GET /api/questions/:id
-      const resp = await fetch(`/api/questions/${id}`);
-      if (!resp.ok) {
-        throw new Error(`Failed to fetch question. Status: ${resp.status}`);
+      const qResp = await fetch(`/api/questions/${id}`);
+      if (!qResp.ok) {
+        throw new Error(`Failed to fetch question. Status: ${qResp.status}`);
       }
-      const data = await resp.json();
-      
-      // Log the JSON response from the backend
-      console.log("Fetched Question JSON:", data);
-      
-      setQuestion(data);
+      const qData = await qResp.json();
+      console.log("Fetched Question JSON:", qData);
+      setQuestion(qData);
 
       // GET /api/answers?questionId=:id
       const ansResp = await fetch(`/api/answers?questionId=${id}`);
@@ -103,15 +109,17 @@ export default function QuestionDetail() {
     }
   };
 
-  // 3. Format a wallet address, e.g. 0x1234...5678
+  // ---------------------------
+  // 2. Format wallet address
+  // ---------------------------
   const formatWalletAddress = (addr: string) => {
     if (!addr) return "Unknown";
     return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
   };
 
-  // 4. Submit a new answer
-  //    a) POST to your backend (/api/answers) to store in DB & IPFS
-  //    b) Then do the on-chain transaction: submitAnswer(_dbId, _ansDbId, _contentCID)
+  // ---------------------------
+  // 3. Submit new answer
+  // ---------------------------
   const handleSubmitAnswer = async () => {
     if (!answerContent.trim()) return;
     if (status !== "authenticated" || !walletAddress) {
@@ -123,7 +131,7 @@ export default function QuestionDetail() {
     try {
       console.log("Submitting answer to backend. questionId:", questionId);
 
-      // 4a. POST to your backend
+      // 3a. POST to your backend to store in DB + IPFS
       const resp = await fetch(`/api/answers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -137,8 +145,7 @@ export default function QuestionDetail() {
         const errData = await resp.json();
         throw new Error(errData.error || "Failed to submit answer");
       }
-
-      // Suppose the backend returns e.g. { success: true, answerId, pinataCid }
+      // Suppose your backend returns { success, answerId, pinataCid, ... }
       const result = await resp.json();
       console.log("Backend answer submission result:", result);
 
@@ -150,8 +157,7 @@ export default function QuestionDetail() {
         throw new Error("No question.id found in local question data");
       }
 
-      // 4b. Now do the on-chain call
-      console.log("Using onChainSubmitAnswer with:", question.id, answerId, pinataCid);
+      // 3b. On-chain call: submitAnswer(_dbId, _ansDbId, _contentCID)
       await onChainSubmitAnswer(question.id, answerId, pinataCid);
 
       // Clear local input & refresh
@@ -165,7 +171,7 @@ export default function QuestionDetail() {
     }
   };
 
-  // 4b. On-chain function: submitAnswer(_dbId, _ansDbId, _contentCID)
+  // 3b. On-chain function
   const onChainSubmitAnswer = async (
     _dbId: string,
     _ansDbId: string,
@@ -191,7 +197,9 @@ export default function QuestionDetail() {
     console.log("submitAnswer transaction mined!");
   };
 
-  // 5. Upvote: open a dialog to confirm
+  // ---------------------------
+  // 4. Upvote an answer
+  // ---------------------------
   const handleVoteClick = (ansDbId: string, isUpvote: boolean) => {
     if (status !== "authenticated" || !walletAddress) {
       setShowConnectWalletDialog(true);
@@ -201,7 +209,6 @@ export default function QuestionDetail() {
     setShowVoteDialog(true);
   };
 
-  // 6. Confirm upvote on-chain
   const confirmVote = async () => {
     setShowVoteDialog(false);
 
@@ -228,6 +235,7 @@ export default function QuestionDetail() {
         signer
       );
 
+      // 4a. Upvote on-chain
       if (isUpvote) {
         console.log("Calling upvoteAnswer on-chain with:", question.id, ansDbId);
         const tx = await askPlatformContract.upvoteAnswer(question.id, ansDbId);
@@ -235,11 +243,27 @@ export default function QuestionDetail() {
         await tx.wait();
         console.log("Upvote transaction mined!");
       } else {
-        // No downvote in your snippet
         console.warn("Downvote not implemented in askPlatform.");
       }
 
-      // Refresh
+      // 4b. Also increment in your DB (so your next fetch sees updated votesCount)
+      console.log("Also calling local /api/answers/upvote to update DB...");
+      const upResp = await fetch("/api/answers/upvote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId: question.id, // or question.dbId if your backend uses that
+          answerId: ansDbId,
+        }),
+      });
+      if (!upResp.ok) {
+        const errText = await upResp.text();
+        console.warn("Local DB upvote route error:", errText);
+      } else {
+        console.log("Local DB upvote route success!");
+      }
+
+      // 4c. Re-fetch from DB
       fetchQuestionData(questionId);
     } catch (err: any) {
       console.error("Error upvoting on-chain:", err);
@@ -247,7 +271,9 @@ export default function QuestionDetail() {
     }
   };
 
-  // 7. Time remaining
+  // ---------------------------
+  // 5. Helper: Show time left
+  // ---------------------------
   const getTimeRemaining = () => {
     if (!question) return "";
     const expiryTime = new Date(question.rewardAt);
@@ -262,7 +288,9 @@ export default function QuestionDetail() {
     return `${diffHrs} hours`;
   };
 
-  // 8. Loading / error
+  // ---------------------------
+  // 6. Loading / error states
+  // ---------------------------
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black text-green-500 flex items-center justify-center">
@@ -283,7 +311,9 @@ export default function QuestionDetail() {
     );
   }
 
-  // 9. Render
+  // ---------------------------
+  // 7. Render
+  // ---------------------------
   return (
     <div className="min-h-screen bg-black text-green-500 flex flex-col">
       {/* For LaTeX rendering */}
@@ -293,6 +323,7 @@ export default function QuestionDetail() {
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
       />
 
+      {/* HEADER */}
       <header className="border-b border-green-500/30 p-4">
         <div className="container mx-auto flex items-center">
           <Link href="/dashboard?tab=questions" className="mr-4">
@@ -314,14 +345,16 @@ export default function QuestionDetail() {
         </div>
       </header>
 
+      {/* MAIN CONTENT */}
       <main className="flex-1 container mx-auto p-4 flex flex-col gap-6">
+        {/* Show error at top if we have it (but question is loaded) */}
         {error && (
           <div className="bg-red-900/30 border border-red-500 text-red-400 p-4 rounded-md">
             {error}
           </div>
         )}
 
-        {/* Question */}
+        {/* Render the question */}
         {question && (
           <Card className="border-green-500 bg-black">
             <CardHeader>
@@ -349,6 +382,7 @@ export default function QuestionDetail() {
               </div>
 
               <CardTitle className="text-xl mt-4">
+                {/* Quick LaTeX replacement for $$...$$ */}
                 <div
                   className="latex-content"
                   dangerouslySetInnerHTML={{
@@ -363,7 +397,7 @@ export default function QuestionDetail() {
           </Card>
         )}
 
-        {/* Answers */}
+        {/* ANSWERS */}
         <div className="space-y-4">
           <h2 className="text-xl font-bold">Answers ({answers.length || 0})</h2>
           {answers.length === 0 ? (
@@ -393,6 +427,7 @@ export default function QuestionDetail() {
                 </CardHeader>
 
                 <CardContent>
+                  {/* Quick LaTeX replacement for $$...$$ */}
                   <div
                     className="latex-content whitespace-pre-line"
                     dangerouslySetInnerHTML={{
@@ -421,7 +456,7 @@ export default function QuestionDetail() {
             ))
           )}
 
-          {/* Submit Answer Form */}
+          {/* SUBMIT ANSWER FORM */}
           <Card className="border-green-500 bg-black">
             <CardHeader>
               <CardTitle className="text-lg">Your Answer</CardTitle>
@@ -430,7 +465,7 @@ export default function QuestionDetail() {
               <Textarea
                 value={answerContent}
                 onChange={(e) => setAnswerContent(e.target.value)}
-                placeholder="Write your answer here... Use $$ around LaTeX e.g. $$\\frac{dy}{dx}$$"
+                placeholder='Write your answer here... Use $$ around LaTeX e.g. $$\\frac{dy}{dx}$$'
                 className="min-h-[150px] bg-black border-green-500 text-green-100"
               />
             </CardContent>
@@ -457,7 +492,7 @@ export default function QuestionDetail() {
         </div>
       </main>
 
-      {/* Vote Confirmation Dialog */}
+      {/* VOTE CONFIRMATION DIALOG */}
       <AlertDialog open={showVoteDialog} onOpenChange={setShowVoteDialog}>
         <AlertDialogContent className="bg-black border-green-500 text-green-500">
           <AlertDialogHeader>
@@ -480,7 +515,7 @@ export default function QuestionDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Connect Wallet Dialog */}
+      {/* CONNECT WALLET DIALOG */}
       <AlertDialog
         open={showConnectWalletDialog}
         onOpenChange={setShowConnectWalletDialog}

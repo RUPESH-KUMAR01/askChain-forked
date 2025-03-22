@@ -85,8 +85,6 @@ export default function AgentChat({ params }: any) {
   const { toast } = useToast();
 
   // --- Agent type from route param ---
-  // If using Next.js 13, `params` might be a Promise. You can do `const { agent } = use(params)` if needed.
-  // For simplicity, we'll assume `params.agent` works here:
   const agentType = params?.agent || "math";
   const currentAgent = agentInfo[agentType] || agentInfo.math;
 
@@ -266,8 +264,6 @@ export default function AgentChat({ params }: any) {
     const signer = await provider.getSigner();
 
     // If your ASK token uses 18 decimals, parseUnits is needed:
-    // For example, if reward=1 => parseUnits("1", 18)
-    // If your token is pure integer, you might do parseInt
     const rewardWei = ethers.parseUnits(rewardAmount.toString(), 18);
 
     // Create a contract instance of the ASK token
@@ -281,8 +277,7 @@ export default function AgentChat({ params }: any) {
 
   /**
    * Actually call askQuestion(_dbId, _subject, _reward).
-   * For a token with 18 decimals, the `_reward` param might be the full wei value.
-   * Or if your contract expects a raw integer, you might pass parseInt.
+   * For a token with 18 decimals, `_reward` param might be the full wei value.
    */
   async function onChainAskQuestion(dbId: string, subject: string, rewardAmount: number) {
     if (!window.ethereum) throw new Error("MetaMask not found.");
@@ -347,9 +342,9 @@ export default function AgentChat({ params }: any) {
       const data = await resp.json();
       console.log("Backend responded with:", data);
 
-      // Suppose data has: { success, questionId, pinataCid, dbId, message, ... }
+      // Suppose data has: { success, questionId, pinataCid, ... }
       if (!data.questionId) {
-        throw new Error("No dbId returned from backend.");
+        throw new Error("No questionId returned from backend.");
       }
       const dbId = data.questionId;
       const subject = currentAgent.subject;
@@ -376,7 +371,8 @@ export default function AgentChat({ params }: any) {
 
       // Optionally redirect
       setTimeout(() => {
-        window.location.href = `/dashboard?questionId=${data.questionId || ""}`;
+        // <--- The fix is here: redirect to /questions/[id]
+        window.location.href = `/questions/${data.questionId || ""}`;
       }, 2000);
     } catch (err: any) {
       console.error("Error posting question or onChainAskQuestion:", err);
@@ -491,7 +487,9 @@ export default function AgentChat({ params }: any) {
             <div className="flex justify-between items-start">
               <div>
                 <AlertTitle
-                  className={postStatus.success ? "text-green-400" : "text-red-400"}
+                  className={
+                    postStatus.success ? "text-green-400" : "text-red-400"
+                  }
                 >
                   {postStatus.success ? "Success" : "Error"}
                 </AlertTitle>
