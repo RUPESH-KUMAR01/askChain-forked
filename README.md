@@ -46,15 +46,19 @@ To set up the project locally:
      pip install -r requirements.txt
      ```
 
-4. **Run the application**:
-   - Navigate to the `apps/endpoints/` directory:
-     ```bash
-     cd apps/endpoints/
-     ```
-   - Start the Flask application:
-     ```bash
-     python -m ask_endpoints
-     ```
+## Standalone endpoints
+
+**Run a standalone server for the Agents**:
+- While in the root directory, start the Flask application:
+```bash
+python -m apps.endpoints.ask_endpoints
+```
+**Run a standalone server for Agent Fine-Tuning**:
+- While in the root directory, start the Flask application:
+```bash
+python -m apps.endpoints.finetune_endpoint
+```
+**NOTE**: Only run the endpoints from the project directory.
 
 ## Contributing
 
