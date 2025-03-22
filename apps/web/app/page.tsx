@@ -21,7 +21,7 @@ export default function Home() {
 
           <div className="space-y-4 font-mono">
             <p className="typing-effect">&gt; Welcome to askChain - A crypto-incentivized Q&A platform</p>
-            <p>&gt; Ask questions to our specialized agents in mathematics, physics, and chemistry</p>
+            <p>&gt; Ask questions to our specialized agents in mathematics, physics, and computer science</p>
             <p>&gt; Post questions with ASK token rewards</p>
             <p>&gt; Earn rewards by providing valuable answers</p>
             <p className="flex items-center">
@@ -33,11 +33,6 @@ export default function Home() {
             <Link href="/connect">
               <Button className="bg-green-700 hover:bg-green-600 text-white border border-green-500">
                 Connect Wallet
-              </Button>
-            </Link>
-            <Link href="/dashboard">
-              <Button variant="outline" className="border-green-500 text-green-500 hover:bg-green-900/30">
-                Enter as Guest
               </Button>
             </Link>
           </div>

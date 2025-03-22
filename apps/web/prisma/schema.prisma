@@ -1,0 +1,62 @@
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique
+  askTokens     Float    @default(0)
+  createdAt     DateTime @default(now())
+  lastLogin     DateTime @updatedAt
+  nonce         String?  // For MetaMask signature verification
+  questions     Question[]
+  answers       Answer[]
+  votes         Vote[]
+}
+
+model Question {
+  id           String    @id @default(cuid())
+  content      String
+  subject      Subject
+  reward       Float
+  asker        User      @relation(fields: [askerId], references: [id])
+  askerId      String
+  rewarded     Boolean   @default(false)
+  rewardAt     DateTime
+  answers      Answer[]
+  createdAt    DateTime  @default(now())
+}
+
+model Answer {
+  id          String    @id @default(cuid())
+  pinataCid   String
+  responder   User      @relation(fields: [responderId], references: [id])
+  responderId String
+  question    Question  @relation(fields: [questionId], references: [id])
+  questionId  String
+  votes       Vote[]
+  createdAt   DateTime  @default(now())
+}
+
+model Vote {
+  id        String   @id @default(cuid())
+  voter     User     @relation(fields: [voterId], references: [id])
+  voterId   String
+  answer    Answer   @relation(fields: [answerId], references: [id])
+  answerId  String
+  createdAt DateTime @default(now())
+
+  @@unique([voterId, answerId])
+}
+
+enum Subject {
+  MATH
+  PHYSICS
+  COMPUTER_SCIENCE
+}

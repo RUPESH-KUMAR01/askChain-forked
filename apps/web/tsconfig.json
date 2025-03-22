@@ -13,14 +13,21 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@components/*": ["./components/*"],
+      "@app/*": ["./app/*"],
+      "@lib/*": ["./lib/*"],
+      "@styles/*": ["./styles/*"],
+      "@db": ["../../packages/db"], // Alias for Prisma
+      "@prisma/*": ["../../packages/db/*"] // Ensure Prisma paths work
+    },
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    ]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

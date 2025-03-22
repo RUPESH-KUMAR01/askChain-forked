@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,10 @@ import { Badge } from "@/components/ui/badge"
 import Script from "next/script"
 
 export default function AgentChat({ params }) {
+  // Unwrap params using React.use()
+  const unwrappedParams = React.use(params);
+  const agentType = unwrappedParams.agent;
+
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -45,7 +49,7 @@ export default function AgentChat({ params }) {
     },
   }
 
-  const currentAgent = agentInfo[params.agent] || agentInfo.math
+  const currentAgent = agentInfo[agentType] || agentInfo.math
 
   useEffect(() => {
     scrollToBottom()
@@ -73,7 +77,7 @@ export default function AgentChat({ params }) {
     setTimeout(() => {
       const agentResponse = {
         role: "assistant",
-        content: generateResponse(params.agent, inputValue),
+        content: generateResponse(agentType, inputValue),
       }
 
       setMessages((prev) => [...prev, agentResponse])
@@ -261,4 +265,3 @@ function generateResponse(agent, question) {
   const agentResponses = responses[agent] || responses.math
   return agentResponses[Math.floor(Math.random() * agentResponses.length)]
 }
-
