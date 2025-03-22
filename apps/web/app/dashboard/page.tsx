@@ -61,7 +61,9 @@ function AgentCard({ title, icon, description, href }: any) {
 
 // Enhanced QuestionCard with better spacing and visual hierarchy
 function QuestionCard({ id, title, category, reward, timeLeft }: any) {
-  const isExpired = new Date(timeLeft) < new Date()
+  const timeLeftDate = new Date(timeLeft);
+  timeLeftDate.setMinutes(timeLeftDate.getMinutes() + 5)
+  const isExpired = timeLeftDate < new Date()
 
   return (
     <Card className="border-green-500 bg-black hover:bg-green-900/10 transition-all duration-300 hover:shadow-[0_0_15px_rgba(34,197,94,0.15)]">
@@ -133,11 +135,10 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/users?walletAddress=${walletAddress}`)
       if(!response.ok){
-        throw new Error(`Failed to fetch votes: ${response.statusText}`)
+        return
       }
 
       const data = await response.json()
-      console.log(data)
       setVotes(data.upvotes)
       setAnswers(data.votedAnswers.length)
     }catch (err) {
@@ -147,7 +148,6 @@ export default function Dashboard() {
   // On mount, fetch community questions
   useEffect(() => {
     fetchQuestions()
-    // fetchAnswers()
     fetchVotes()
   }, [walletAddress])
 
