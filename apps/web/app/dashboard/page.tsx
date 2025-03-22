@@ -460,7 +460,7 @@ export default function Dashboard() {
                 title="Computer Science"
                 icon={<Brain className="h-6 w-6 text-green-400" />}
                 description="All in one AI agent to help with your code"
-                href="/agents/computerscience"
+                href="/agents/compsci"
               />
             </div>
           </TabsContent>

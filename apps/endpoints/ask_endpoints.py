@@ -1,12 +1,14 @@
 from flask import Flask, Request, request, jsonify
 from typing import List
+from flask_cors import CORS
 from apps.agents.math_agent_langchain import MathAgent
 from apps.agents.compsci_agent_langchain import CompSciAgent
 from apps.agents.physics_agent_langchain import PhysicsAgent
 from apps.agents.agent_utils import run_agent
 
 app = Flask(__name__)
-
+# Enable CORS for all routes
+CORS(app)
 math_agent = MathAgent()
 cs_agent = CompSciAgent()
 phys_agent = PhysicsAgent()
