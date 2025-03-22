@@ -36,9 +36,12 @@ class MathAgent:
                 "question": user_profile.question,
                 "details": user_profile.details
             })
+            
             return response.content
         except Exception as e:
             raise AgentException(f"Error generating answer: {str(e)}") from e
+        
+        
 
 # Example Usage
 if __name__ == "__main__":

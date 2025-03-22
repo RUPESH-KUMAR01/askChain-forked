@@ -29,25 +29,5 @@ def ask_math() -> jsonify:
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/math/finetune", methods=["POST"])
-def fine_tune() -> jsonify:
-    try:
-        req: Request = request
-        data: dict = req.json
-
-        new_training_data: List[dict] = data.get("examples", [])
-
-        if not new_training_data:
-            return jsonify({
-                "error": f"Missing required field 'examples'. Received: {data}"
-            }), 400
-
-        # response: str = fine_tune_model(new_training_data) #Have to replace this with actual fine tuning
-
-        return jsonify({"message": response}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

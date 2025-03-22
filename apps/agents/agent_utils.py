@@ -3,5 +3,5 @@ class AgentException(Exception):
     def __init__(self, message: str):
         super().__init__(message)
 
-base_model_name = "meta-llama/Meta-Llama-3-8B"
+base_model_name = "incept5/llama3.1-claude"
 finetune_prefix = "llama3_finetuned"
