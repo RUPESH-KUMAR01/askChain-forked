@@ -276,9 +276,11 @@ export default function QuestionDetail() {
   // ---------------------------
   const getTimeRemaining = () => {
     if (!question) return "";
-    const expiryTime = new Date(question.rewardAt);
+    const expiryTime = new Date(question.createdAt);
+    expiryTime.setMinutes(5+expiryTime.getMinutes())
     const now = new Date();
     if (now > expiryTime) return "Expired";
+
     const diffMs = expiryTime.getTime() - now.getTime();
     const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHrs < 1) {

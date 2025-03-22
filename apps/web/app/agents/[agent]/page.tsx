@@ -43,6 +43,7 @@ import {
 
 // 1) Import your contract ABIs and addresses
 import { askPlatformABI } from "@/lib/abis/askPlatformAbi";
+import { useParams } from "next/navigation";
 const askPlatformAddress = process.env.NEXT_PUBLIC_ASK_PLATFORM_ADDRESS || "";
 
 // The ERC-20 token contract (AskToken) to be approved
@@ -79,7 +80,8 @@ const agentInfo = {
   },
 };
 
-export default function AgentChat({ params }: any) {
+export default function AgentChat() {
+  const params = useParams();
   const { data: session, status } = useSession();
   const walletAddress = session?.user?.walletAddress || "";
   const { toast } = useToast();
