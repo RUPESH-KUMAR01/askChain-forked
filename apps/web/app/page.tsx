@@ -38,10 +38,6 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="text-center text-green-400 text-sm">
-          <p>Register with 1 ETH to receive 100 ASK tokens</p>
-          <p>Powered by Solidity, Next.js, and AI</p>
-        </div>
       </div>
     </main>
   )

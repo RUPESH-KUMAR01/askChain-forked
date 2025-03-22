@@ -31,11 +31,13 @@ import {
 
 // Import your askPlatform ABI and contract address
 import { askPlatformABI } from "@/lib/abis/askPlatformAbi";
+import { useParams } from "next/navigation";
 const askPlatformAddress = process.env.NEXT_PUBLIC_ASK_PLATFORM_ADDRESS || "";
 
-export default function QuestionDetail({ params }: any) {
+export default function QuestionDetail() {
   // The question's unique ID from route params
-  const questionId = params?.id;
+  const params=useParams();
+  const questionId = params?.id
 
   // NextAuth session & wallet address
   const { data: session, status } = useSession();

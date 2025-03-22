@@ -61,7 +61,9 @@ function AgentCard({ title, icon, description, href }: any) {
 
 // Enhanced QuestionCard with better spacing and visual hierarchy
 function QuestionCard({ id, title, category, reward, timeLeft }: any) {
-  const isExpired = new Date(timeLeft) < new Date()
+  const timeLeftDate = new Date(timeLeft);
+  timeLeftDate.setMinutes(timeLeftDate.getMinutes() + 5)
+  const isExpired = timeLeftDate < new Date()
 
   return (
     <Card className="border-green-500 bg-black hover:bg-green-900/10 transition-all duration-300 hover:shadow-[0_0_15px_rgba(34,197,94,0.15)]">

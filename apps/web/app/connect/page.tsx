@@ -76,7 +76,7 @@ export default function ConnectWallet() {
           )}
           
           {session ? (
-              <div className="min-h-screen bg-black text-green-500 flex items-center justify-center">
+              <div className="bg-black text-green-500 flex items-center justify-center">
               <div className="flex flex-col items-center gap-4">
                 <div className="animate-spin">
                   <RefreshCw className="h-8 w-8" />
