@@ -73,12 +73,18 @@ export default function QuestionDetail() {
   const fetchQuestionData = async (id: string) => {
     setIsLoading(true);
     try {
+      console.log("Fetching question details for ID:", id);
+
       // GET /api/questions/:id
       const resp = await fetch(`/api/questions/${id}`);
       if (!resp.ok) {
         throw new Error(`Failed to fetch question. Status: ${resp.status}`);
       }
       const data = await resp.json();
+      
+      // Log the JSON response from the backend
+      console.log("Fetched Question JSON:", data);
+      
       setQuestion(data);
 
       // GET /api/answers?questionId=:id
@@ -87,6 +93,7 @@ export default function QuestionDetail() {
         throw new Error(`Failed to fetch answers. Status: ${ansResp.status}`);
       }
       const ansData = await ansResp.json();
+      console.log("Answers data from backend:", ansData);
       setAnswers(ansData);
     } catch (err: any) {
       console.error("Error fetching question or answers:", err);
@@ -114,6 +121,8 @@ export default function QuestionDetail() {
 
     setIsSubmitting(true);
     try {
+      console.log("Submitting answer to backend. questionId:", questionId);
+
       // 4a. POST to your backend
       const resp = await fetch(`/api/answers`, {
         method: "POST",
@@ -129,12 +138,21 @@ export default function QuestionDetail() {
         throw new Error(errData.error || "Failed to submit answer");
       }
 
-      // Suppose the backend returns e.g. { success: true, ansDbId: "...", contentCID: "..." }
+      // Suppose the backend returns e.g. { success: true, answerId, pinataCid }
       const result = await resp.json();
-      const { ansDbId, contentCID } = result; // or adapt to your actual fields
+      console.log("Backend answer submission result:", result);
+
+      const { answerId, pinataCid } = result;
+      if (!answerId || !pinataCid) {
+        throw new Error("Backend did not return ansDbId (answerId) or contentCID (pinataCid)");
+      }
+      if (!question?.id) {
+        throw new Error("No question.id found in local question data");
+      }
 
       // 4b. Now do the on-chain call
-      await onChainSubmitAnswer(question.id, ansDbId, contentCID);
+      console.log("Using onChainSubmitAnswer with:", question.id, answerId, pinataCid);
+      await onChainSubmitAnswer(question.id, answerId, pinataCid);
 
       // Clear local input & refresh
       setAnswerContent("");
@@ -166,7 +184,9 @@ export default function QuestionDetail() {
       signer
     );
 
+    console.log("Calling contract submitAnswer with:", _dbId, _ansDbId, _contentCID);
     const tx = await askPlatformContract.submitAnswer(_dbId, _ansDbId, _contentCID);
+    console.log("submitAnswer tx hash:", tx.hash);
     await tx.wait();
     console.log("submitAnswer transaction mined!");
   };
@@ -192,6 +212,8 @@ export default function QuestionDetail() {
     const { ansDbId, isUpvote } = voteInfo;
 
     try {
+      console.log("Confirming upvote on chain. question.id:", question.id, " ansDbId:", ansDbId);
+
       if (!window.ethereum) {
         setError("MetaMask not found.");
         return;
@@ -207,7 +229,9 @@ export default function QuestionDetail() {
       );
 
       if (isUpvote) {
+        console.log("Calling upvoteAnswer on-chain with:", question.id, ansDbId);
         const tx = await askPlatformContract.upvoteAnswer(question.id, ansDbId);
+        console.log("upvoteAnswer tx hash:", tx.hash);
         await tx.wait();
         console.log("Upvote transaction mined!");
       } else {
@@ -406,7 +430,7 @@ export default function QuestionDetail() {
               <Textarea
                 value={answerContent}
                 onChange={(e) => setAnswerContent(e.target.value)}
-                placeholder="Write your answer here... Use $$ around LaTeX e.g. $$\frac{dy}{dx}$$"
+                placeholder="Write your answer here... Use $$ around LaTeX e.g. $$\\frac{dy}{dx}$$"
                 className="min-h-[150px] bg-black border-green-500 text-green-100"
               />
             </CardContent>

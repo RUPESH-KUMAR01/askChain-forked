@@ -1,11 +1,22 @@
-"use client"
+"use client";
 
-import { Input } from "@/components/ui/input"
+import React, { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { ethers } from "ethers";
+import { remark } from "remark";
+import remarkHtml from "remark-html";
 
-import React, { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -13,439 +24,399 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Calculator, Atom, Brain, Send, ArrowLeft, Loader2, AlertCircle, X } from "lucide-react"
-import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import Script from "next/script"
-import { useToast } from "@/components/ui/use-toast"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useSession } from "next-auth/react"
-// Import remark and remark-html for markdown processing
-import { remark } from "remark"
-import remarkHtml from "remark-html"
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import Script from "next/script";
+import { useToast } from "@/components/ui/use-toast";
 
-// Define base URL for AI agent API calls
-const BASE_URL = "http://localhost:5000"
+import {
+  Calculator,
+  Atom,
+  Brain,
+  Send,
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  X,
+} from "lucide-react";
 
-export default function AgentChat({ params }) {
-  console.log("AgentChat component rendering with params:", params)
+// 1) Import your contract ABIs and addresses
+import { askPlatformABI } from "@/lib/abis/askPlatformAbi";
+const askPlatformAddress = process.env.NEXT_PUBLIC_ASK_PLATFORM_ADDRESS || "";
 
-  // Get session info with next-auth
-  const { data: session, status } = useSession()
+// The ERC-20 token contract (AskToken) to be approved
+const askTokenABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)"
+];
+const askTokenAddress = process.env.NEXT_PUBLIC_ASK_TOKEN_ADDRESS || "";
 
-  // Unwrap params using React.use()
-  const unwrappedParams = React.use(params)
-  const agentType = unwrappedParams?.agent || "math"
+// Example base URL for your AI agent
+const BASE_URL = "http://localhost:5000";
 
-  console.log("Agent type:", agentType)
-  console.log("Session status:", status)
-  console.log("Session data:", session)
+// Example definitions of your AI agents
+const agentInfo = {
+  math: {
+    name: "Mathematics Agent",
+    icon: <Calculator className="h-6 w-6" />,
+    color: "text-blue-500",
+    subject: "MATH",
+    endpoint: "/math/ask",
+  },
+  physics: {
+    name: "Physics Agent",
+    icon: <Atom className="h-6 w-6" />,
+    color: "text-purple-500",
+    subject: "PHYSICS",
+    endpoint: "/physics/ask",
+  },
+  compsci: {
+    name: "Computer Science Agent",
+    icon: <Brain className="h-6 w-6" />,
+    color: "text-yellow-500",
+    subject: "COMPUTER_SCIENCE",
+    endpoint: "/compsci/ask",
+  },
+};
 
-  const [messages, setMessages] = useState([])
-  const [inputValue, setInputValue] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [lastQuestion, setLastQuestion] = useState("")
-  const [showPostDialog, setShowPostDialog] = useState(false)
-  const [reward, setReward] = useState(0.1)
-  const [isPostingQuestion, setIsPostingQuestion] = useState(false)
-  const [postStatus, setPostStatus] = useState({ show: false, success: false, message: "" })
-  const [mathjaxReady, setMathjaxReady] = useState(false)
-  const { toast } = useToast()
+export default function AgentChat({ params }: any) {
+  const { data: session, status } = useSession();
+  const walletAddress = session?.user?.walletAddress || "";
+  const { toast } = useToast();
 
-  const messagesEndRef = useRef(null)
-  const contentRef = useRef(null)
-  const textareaRef = useRef(null)
+  // --- Agent type from route param ---
+  // If using Next.js 13, `params` might be a Promise. You can do `const { agent } = use(params)` if needed.
+  // For simplicity, we'll assume `params.agent` works here:
+  const agentType = params?.agent || "math";
+  const currentAgent = agentInfo[agentType] || agentInfo.math;
 
-  const agentInfo = {
-    math: {
-      name: "Mathematics Agent",
-      icon: <Calculator className="h-6 w-6" />,
-      color: "text-blue-500",
-      subject: "MATH",
-      endpoint: "/math/ask",
-    },
-    physics: {
-      name: "Physics Agent",
-      icon: <Atom className="h-6 w-6" />,
-      color: "text-purple-500",
-      subject: "PHYSICS",
-      endpoint: "/physics/ask",
-    },
-    compsci: {
-      name: "Computer Science Agent",
-      icon: <Brain className="h-6 w-6" />,
-      color: "text-yellow-500",
-      subject: "COMPUTER_SCIENCE",
-      endpoint: "/compsci/ask",
-    },
-  }
+  // --- Chat states ---
+  const [messages, setMessages] = useState<any[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastQuestion, setLastQuestion] = useState("");
 
-  const currentAgent = agentInfo[agentType] || agentInfo.math
+  // --- Post to community states ---
+  const [showPostDialog, setShowPostDialog] = useState(false);
+  const [reward, setReward] = useState(0.1); // user-chosen reward in ASK
+  const [isPostingQuestion, setIsPostingQuestion] = useState(false);
+  const [postStatus, setPostStatus] = useState({
+    show: false,
+    success: false,
+    message: "",
+  });
 
+  // For MathJax / highlight
+  const [mathjaxReady, setMathjaxReady] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  // Function to safely run MathJax typesetting
+  // Safely run MathJax
   const typesetMath = () => {
     if (window.MathJax && typeof window.MathJax.typesetPromise === "function") {
-      try {
-        // Target only the content container instead of the entire document
-        if (contentRef.current) {
-          window.MathJax.typesetPromise([contentRef.current])
-            .then(() => {
-              console.log("MathJax typesetting completed for dynamic content")
-            })
-            .catch((err) => {
-              console.error("MathJax typesetting failed:", err)
-            })
-        } else {
-          // Fallback to typeset the entire document if ref isn't available
-          window.MathJax.typesetPromise()
-            .then(() => {
-              console.log("MathJax typesetting completed (full document)")
-            })
-            .catch((err) => {
-              console.error("MathJax typesetting failed:", err)
-            })
-        }
-      } catch (error) {
-        console.error("Error during MathJax typesetting:", error)
+      if (contentRef.current) {
+        window.MathJax.typesetPromise([contentRef.current]).catch((err) => {
+          console.error("MathJax typesetting failed:", err);
+        });
+      } else {
+        window.MathJax.typesetPromise().catch((err) => {
+          console.error("MathJax typesetting failed:", err);
+        });
       }
-    } else {
-      console.warn("MathJax not available or typesetPromise not a function")
     }
-  }
+  };
 
-  // Function to highlight code blocks
+  // Code highlight
   const highlightCode = () => {
     if (window.hljs) {
       try {
-        const codeBlocks = document.querySelectorAll("pre code")
+        const codeBlocks = document.querySelectorAll("pre code");
         codeBlocks.forEach((block) => {
-          window.hljs.highlightElement(block)
-        })
-        console.log(`Highlighted ${codeBlocks.length} code blocks`)
+          (window as any).hljs.highlightElement(block);
+        });
       } catch (error) {
-        console.error("Error highlighting code:", error)
+        console.error("Error highlighting code:", error);
       }
     }
-  }
+  };
 
-  // Process content when messages update or MathJax becomes ready
+  // Re-run typesetting / highlight after messages or once MathJax is ready
   useEffect(() => {
-    // If MathJax is ready and we have messages, apply typesetting
     if (mathjaxReady && messages.length > 0) {
-      // Add a small delay to ensure DOM updates are complete
       const timer = setTimeout(() => {
-        typesetMath()
-        highlightCode()
-      }, 100)
-
-      return () => clearTimeout(timer)
+        typesetMath();
+        highlightCode();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-
-    // Always try to highlight code even if MathJax isn't ready
     if (messages.length > 0) {
       const timer = setTimeout(() => {
-        highlightCode()
-      }, 100)
-
-      return () => clearTimeout(timer)
+        highlightCode();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [messages, mathjaxReady, showPostDialog])
+  }, [messages, mathjaxReady]);
 
-  // Handle MathJax loading
   const handleMathJaxLoad = () => {
-    console.log("MathJax script loaded and ready")
-    setMathjaxReady(true)
-
-    // Process existing content
+    setMathjaxReady(true);
     setTimeout(() => {
-      typesetMath()
-      highlightCode()
-    }, 200)
-  }
+      typesetMath();
+      highlightCode();
+    }, 200);
+  };
 
-  // Function to convert markdown to HTML
-  const processMarkdown = async (markdown) => {
+  // Markdown -> HTML
+  const processMarkdown = async (markdown: string) => {
     try {
-      const result = await remark().use(remarkHtml).process(markdown)
-      return result.toString()
+      const result = await remark().use(remarkHtml).process(markdown);
+      return result.toString();
     } catch (error) {
-      console.error("Error processing markdown:", error)
-      return markdown
+      console.error("Error processing markdown:", error);
+      return markdown;
     }
-  }
+  };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
-  // Auto-resize textarea based on content
+  // Auto-resize textarea
   const autoResizeTextarea = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto"
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }
-
-  // Update textarea height when input changes
+  };
   useEffect(() => {
-    autoResizeTextarea()
-  }, [inputValue])
+    autoResizeTextarea();
+  }, [inputValue]);
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault()
-    console.log("handleSendMessage called with input:", inputValue)
+  // Send user message to AI
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim()) return;
 
-    if (!inputValue.trim()) {
-      console.log("Input is empty, returning early")
-      return
-    }
-
-    const userMessage = {
-      role: "user",
-      content: inputValue,
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setLastQuestion(inputValue)
-    setInputValue("")
-    setIsLoading(true)
-
-    console.log("Message added to chat, calling agent API...")
+    const userMessage = { role: "user", content: inputValue };
+    setMessages((prev) => [...prev, userMessage]);
+    setLastQuestion(inputValue);
+    setInputValue("");
+    setIsLoading(true);
 
     try {
-      // Get the endpoint path for the current agent
-      const endpointPath = currentAgent.endpoint
-      // Construct the full URL with the base URL
-      const fullEndpointUrl = `${BASE_URL}${endpointPath}`
-      console.log(`Calling ${fullEndpointUrl} for agent response`)
-
-      // Prepare the request payload - Updated to match expected request format
+      // Example agent call
+      const fullUrl = `${BASE_URL}${currentAgent.endpoint}`;
       const payload = {
         question: userMessage.content,
-        topics: [currentAgent.subject], // Using the subject specific to the current agent
-        details: "", // Optional additional details
-      }
+        topics: [currentAgent.subject],
+        details: "",
+      };
 
-      console.log("Sending payload with topics:", payload.topics)
-
-      // Make the API call to the full URL
-      const response = await fetch(fullEndpointUrl, {
+      const response = await fetch(fullUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      })
+      });
+      if (!response.ok) throw new Error(`Agent call failed: ${response.status}`);
+      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(`API call failed with status: ${response.status}`)
-      }
+      const answerContent = data.answer || "No answer provided";
+      const processed = await processMarkdown(answerContent);
 
-      const data = await response.json()
-      console.log("Received response from API:", data)
-
-      // Extract just the answer field from the response
-      const answerContent = data.answer || "No answer provided"
-
-      // Process the markdown content to HTML
-      const processedContent = await processMarkdown(answerContent)
-
-      // Add the agent's response to the chat
       const agentResponse = {
         role: "assistant",
-        content: processedContent,
-        rawContent: answerContent, // Keep the raw content for editing/reference
-      }
-
-      setMessages((prev) => [...prev, agentResponse])
-
-      // Wait a bit to ensure DOM is updated before applying MathJax
+        content: processed,
+        rawContent: answerContent,
+      };
+      setMessages((prev) => [...prev, agentResponse]);
       setTimeout(() => {
-        typesetMath()
-        highlightCode()
-      }, 100)
-    } catch (error) {
-      console.error("Error getting agent response:", error)
-
-      // Add error message to chat
-      const errorResponse = {
+        typesetMath();
+        highlightCode();
+      }, 100);
+    } catch (error: any) {
+      console.error("Error in AI call:", error);
+      const errorResp = {
         role: "assistant",
-        content: `I'm sorry, I encountered an error processing your request: ${error.message}`,
-      }
-
-      setMessages((prev) => [...prev, errorResponse])
-
+        content: `Error: ${error.message}`,
+      };
+      setMessages((prev) => [...prev, errorResp]);
       toast({
         title: "Error",
-        description: `Failed to get a response: ${error.message}`,
+        description: error.message,
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
+  };
+
+  // ---------------------------
+  // (A) Approve & askQuestion
+  // ---------------------------
+
+  /**
+   * Approve the AskPlatform contract to spend `rewardAmount` ASK tokens on behalf of user.
+   */
+  async function approveAskTokens(rewardAmount: number) {
+    if (!window.ethereum) throw new Error("MetaMask not found.");
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
+
+    // If your ASK token uses 18 decimals, parseUnits is needed:
+    // For example, if reward=1 => parseUnits("1", 18)
+    // If your token is pure integer, you might do parseInt
+    const rewardWei = ethers.parseUnits(rewardAmount.toString(), 18);
+
+    // Create a contract instance of the ASK token
+    const askToken = new ethers.Contract(askTokenAddress, askTokenABI, signer);
+    console.log("Approving AskPlatform contract to spend", rewardWei.toString(), "wei of ASK...");
+
+    const tx = await askToken.approve(askPlatformAddress, rewardWei);
+    await tx.wait();
+    console.log("approve() tx mined successfully!");
   }
 
+  /**
+   * Actually call askQuestion(_dbId, _subject, _reward).
+   * For a token with 18 decimals, the `_reward` param might be the full wei value.
+   * Or if your contract expects a raw integer, you might pass parseInt.
+   */
+  async function onChainAskQuestion(dbId: string, subject: string, rewardAmount: number) {
+    if (!window.ethereum) throw new Error("MetaMask not found.");
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
+
+    const askPlatform = new ethers.Contract(askPlatformAddress, askPlatformABI, signer);
+
+    // If your contract uses 18 decimals for `_reward`, parse it:
+    const rewardWei = ethers.parseUnits(rewardAmount.toString(), 18);
+
+    console.log("Calling askQuestion with:", { dbId, subject, rewardWei: rewardWei.toString() });
+    const tx = await askPlatform.askQuestion(dbId, subject, rewardWei);
+    await tx.wait();
+    console.log("askQuestion() transaction mined!");
+  }
+
+  // (B) handlePostQuestion: store in DB, then do two on-chain calls:
+  //  1) approve
+  //  2) askQuestion
   const handlePostQuestion = async () => {
-    // Prevent double submission
-    if (isPostingQuestion) {
-      console.log("Already posting, preventing double submission")
-      return
-    }
+    if (isPostingQuestion) return;
 
-    console.log("handlePostQuestion called - starting post process")
-
-    // Get wallet address from session
-    const walletAddress = session?.user?.walletAddress
-
-    console.log("Wallet address from session:", walletAddress)
-    console.log("Last question:", lastQuestion)
-    console.log("Subject:", currentAgent.subject)
-    console.log("Reward:", reward)
-
-    if (!walletAddress) {
-      console.log("No wallet address found in session, showing toast")
+    if (!session?.user?.walletAddress) {
       toast({
         title: "Authentication Required",
         description: "Please sign in with your wallet to post questions",
         variant: "destructive",
-      })
-      setShowPostDialog(false)
-      return
+      });
+      setShowPostDialog(false);
+      return;
     }
 
-    setIsPostingQuestion(true)
-    console.log("isPostingQuestion set to true")
-
+    setIsPostingQuestion(true);
     setPostStatus({
       show: true,
       success: false,
       message: "Posting your question to the community...",
-    })
-    console.log("Post status updated to show 'posting' message")
+    });
 
     try {
+      // 1) POST to your backend to store question in DB & IPFS
       const postData = {
-        walletAddress,
+        walletAddress: session.user.walletAddress,
         content: lastQuestion,
         subject: currentAgent.subject,
-        reward: reward,
-      }
+        reward, // the numeric reward in ASK
+      };
+      console.log("Posting question to backend /api/questions:", postData);
 
-      console.log("Preparing to post question with data:", postData)
-      console.log("Calling fetch to /api/questions")
-
-      // Add a small delay to ensure state updates are reflected in the UI before fetch
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      const response = await fetch("/api/questions", {
+      const resp = await fetch("/api/questions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(postData),
-      })
-
-      console.log("Fetch completed with status:", response.status)
-
-      if (!response.ok) {
-        console.log("Response not OK:", response.status, response.statusText)
-        const errorText = await response.text()
-        console.log("Error response body:", errorText)
-
-        let errorData
-        try {
-          errorData = JSON.parse(errorText)
-        } catch (e) {
-          console.log("Could not parse error response as JSON")
-          throw new Error(`HTTP error: ${response.status} ${response.statusText}`)
-        }
-
-        throw new Error(errorData.error || errorData.message || "Failed to post question")
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Backend error: ${errText}`);
       }
+      const data = await resp.json();
+      console.log("Backend responded with:", data);
 
-      const data = await response.json()
-      console.log("Response from server:", data)
+      // Suppose data has: { success, questionId, pinataCid, dbId, message, ... }
+      if (!data.questionId) {
+        throw new Error("No dbId returned from backend.");
+      }
+      const dbId = data.questionId;
+      const subject = currentAgent.subject;
 
+      // 2) Approve the contract to spend `reward` tokens
+      await approveAskTokens(reward);
+
+      // 3) Actually call onChainAskQuestion
+      await onChainAskQuestion(dbId, subject, reward);
+
+      // If successful, show success
       setPostStatus({
         show: true,
         success: true,
-        message: `Question posted successfully! IPFS CID: ${data.pinataCid?.substring(0, 8) || "N/A"}...`,
-      })
-      console.log("Post status updated to success")
+        message: `Question posted successfully! IPFS CID: ${
+          data.pinataCid?.substring(0, 8) || "N/A"
+        }...`,
+      });
 
       toast({
         title: "Question Posted Successfully",
-        description: `Your question has been posted to the community${data.pinataCid ? ` with IPFS CID: ${data.pinataCid.substring(0, 8)}...` : ""}`,
-      })
-      console.log("Success toast displayed")
+        description: `Your question has been posted on-chain & in DB (CID: ${data.pinataCid || "N/A"})`,
+      });
 
-      // Add small delay before redirect
-      console.log("Will redirect to dashboard in 2 seconds")
+      // Optionally redirect
       setTimeout(() => {
-        const redirectUrl = `/dashboard?questionId=${data.questionId || ""}`
-        console.log("Redirecting to:", redirectUrl)
-        window.location.href = redirectUrl
-      }, 2000)
-    } catch (error) {
-      console.error("Error posting question:", error)
-
+        window.location.href = `/dashboard?questionId=${data.questionId || ""}`;
+      }, 2000);
+    } catch (err: any) {
+      console.error("Error posting question or onChainAskQuestion:", err);
       setPostStatus({
         show: true,
         success: false,
-        message: `Error: ${error.message}`,
-      })
-      console.log("Post status updated to error")
-
+        message: `Error: ${err.message}`,
+      });
       toast({
         title: "Error Posting Question",
-        description: error.message,
+        description: err.message,
         variant: "destructive",
-      })
-      console.log("Error toast displayed")
+      });
     } finally {
-      console.log("Post process completed (success or failure)")
-      // Keep isPostingQuestion true if successful - we'll redirect anyway
-      // Only set to false if there was an error
-      if (!postStatus.success) {
-        setIsPostingQuestion(false)
-        console.log("isPostingQuestion reset to false due to error")
-      }
+      setIsPostingQuestion(false);
     }
-  }
+  };
 
   const handleClosePostStatus = () => {
-    console.log("Closing post status alert")
-    setPostStatus({ show: false, success: false, message: "" })
-
-    // Only close dialog and reset posting state if it was an error
+    setPostStatus({ show: false, success: false, message: "" });
     if (!postStatus.success) {
-      setShowPostDialog(false)
-      setIsPostingQuestion(false)
-      console.log("Dialog closed and posting state reset")
+      setShowPostDialog(false);
+      setIsPostingQuestion(false);
     }
-  }
+  };
 
-  // Function to reprocess rendering after dialog changes
-  const handleDialogOpenChange = (open) => {
-    console.log("Dialog open state changing to:", open)
-    setShowPostDialog(open)
-
-    // If dialog is closing, ensure content is re-rendered
+  // Toggle dialog open/close
+  const handleDialogOpenChange = (open: boolean) => {
+    setShowPostDialog(open);
     if (!open) {
       setTimeout(() => {
-        typesetMath()
-        highlightCode()
-      }, 200)
+        typesetMath();
+        highlightCode();
+      }, 200);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-black text-green-500 flex flex-col">
+      {/* Header */}
       <header className="border-b border-green-500/30 p-4">
         <div className="container mx-auto flex items-center">
           <Link href="/dashboard" className="mr-4">
@@ -453,22 +424,22 @@ export default function AgentChat({ params }) {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-
           <div className="flex items-center gap-2">
             {currentAgent.icon}
             <h1 className="text-xl font-bold">{currentAgent.name}</h1>
           </div>
-
-          {/* Session Info */}
           <div className="ml-auto text-xs text-green-400/50">
             Wallet:{" "}
-            {session?.user?.walletAddress ? `${session.user.walletAddress.substring(0, 6)}...` : "Not connected"}
+            {walletAddress
+              ? walletAddress.substring(0, 6) + "..."
+              : "Not connected"}
           </div>
         </div>
       </header>
 
+      {/* Main */}
       <main className="flex-1 container mx-auto p-4 flex flex-col">
-        {/* MathJax configuration and setup */}
+        {/* Scripts */}
         <Script
           id="mathjax-config"
           strategy="beforeInteractive"
@@ -480,61 +451,60 @@ export default function AgentChat({ params }) {
                   displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
                   processEscapes: true
                 },
-                svg: {
-                  fontCache: 'global'
-                },
-                options: {
-                  enableMenu: false
-                },
+                svg: { fontCache: 'global' },
+                options: { enableMenu: false },
                 startup: {
                   pageReady: function() {
-                    console.log('MathJax initial pageReady');
                     return MathJax.startup.defaultPageReady();
                   }
                 }
               };
-              console.log("MathJax configuration set");
             `,
           }}
         />
-
-        {/* Load MathJax script */}
         <Script
           id="mathjax-script"
           strategy="afterInteractive"
           src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
           onLoad={handleMathJaxLoad}
         />
-
-        {/* Load highlight.js */}
         <Script
           id="highlight-js-script"
           strategy="afterInteractive"
           src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"
-          onLoad={() => {
-            console.log("Highlight.js loaded")
-            highlightCode()
-          }}
+          onLoad={() => highlightCode()}
         />
-
-        {/* CSS for syntax highlighting */}
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css"
         />
 
+        {/* Post status alert */}
         {postStatus.show && (
           <Alert
-            className={`mb-4 ${postStatus.success ? "bg-green-900/30 border-green-500" : "bg-red-900/30 border-red-500"}`}
+            className={`mb-4 ${
+              postStatus.success
+                ? "bg-green-900/30 border-green-500"
+                : "bg-red-900/30 border-red-500"
+            }`}
           >
             <div className="flex justify-between items-start">
               <div>
-                <AlertTitle className={postStatus.success ? "text-green-400" : "text-red-400"}>
+                <AlertTitle
+                  className={postStatus.success ? "text-green-400" : "text-red-400"}
+                >
                   {postStatus.success ? "Success" : "Error"}
                 </AlertTitle>
-                <AlertDescription className="text-green-100">{postStatus.message}</AlertDescription>
+                <AlertDescription className="text-green-100">
+                  {postStatus.message}
+                </AlertDescription>
               </div>
-              <Button variant="ghost" size="icon" className="text-green-500 h-8 w-8" onClick={handleClosePostStatus}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-green-500 h-8 w-8"
+                onClick={handleClosePostStatus}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -543,101 +513,18 @@ export default function AgentChat({ params }) {
 
         <Card className="flex-1 border-green-500 bg-black overflow-hidden flex flex-col">
           <CardHeader className="border-b border-green-500/30">
-            <CardTitle className="text-lg">Chat with {currentAgent.name}</CardTitle>
+            <CardTitle className="text-lg">
+              Chat with {currentAgent.name}
+            </CardTitle>
           </CardHeader>
 
-          <CardContent className="flex-1 overflow-y-auto p-4 space-y-4" ref={contentRef}>
-            {/* Custom CSS for markdown styling */}
+          <CardContent
+            className="flex-1 overflow-y-auto p-4 space-y-4"
+            ref={contentRef}
+          >
+            {/* Example Markdown styling */}
             <style jsx global>{`
-              .markdown-content {
-                font-family: 'system-ui', sans-serif;
-                line-height: 1.6;
-                color: #d4ffd4;
-              }
-              
-              .markdown-content h1, 
-              .markdown-content h2, 
-              .markdown-content h3, 
-              .markdown-content h4, 
-              .markdown-content h5, 
-              .markdown-content h6 {
-                margin-top: 1.5em;
-                margin-bottom: 0.5em;
-                font-weight: 600;
-                color: #7dff7d;
-              }
-              
-              .markdown-content h1 { font-size: 1.7em; }
-              .markdown-content h2 { font-size: 1.5em; }
-              .markdown-content h3 { font-size: 1.3em; }
-              
-              .markdown-content p {
-                margin-bottom: 1em;
-              }
-              
-              .markdown-content ul, 
-              .markdown-content ol {
-                margin-left: 1.5em;
-                margin-bottom: 1em;
-              }
-              
-              .markdown-content li {
-                margin-bottom: 0.5em;
-              }
-              
-              .markdown-content code:not(pre code) {
-                background-color: rgba(0, 100, 0, 0.2);
-                padding: 0.2em 0.4em;
-                border-radius: 3px;
-                font-family: monospace;
-                font-size: 0.9em;
-              }
-              
-              .markdown-content pre {
-                background-color: rgba(0, 40, 0, 0.5);
-                padding: 1em;
-                border-radius: 5px;
-                overflow-x: auto;
-                margin-bottom: 1em;
-              }
-              
-              .markdown-content blockquote {
-                border-left: 4px solid #4caf50;
-                padding-left: 1em;
-                margin-left: 0;
-                margin-right: 0;
-                font-style: italic;
-                color: #a0ffa0;
-              }
-              
-              .markdown-content table {
-                border-collapse: collapse;
-                width: 100%;
-                margin-bottom: 1em;
-              }
-              
-              .markdown-content th, 
-              .markdown-content td {
-                border: 1px solid #4caf50;
-                padding: 0.5em;
-                text-align: left;
-              }
-              
-              .markdown-content th {
-                background-color: rgba(0, 80, 0, 0.3);
-              }
-              
-              .markdown-content a {
-                color: #8fffff;
-                text-decoration: underline;
-              }
-              
-              /* Prevent MathJax SVG from overflowing */
-              .MathJax_SVG_Display {
-                overflow-x: auto;
-                overflow-y: hidden;
-                padding: 0.5em 0;
-              }
+              /* ... your markdown + code highlight CSS ... */
             `}</style>
 
             {messages.length === 0 ? (
@@ -645,23 +532,26 @@ export default function AgentChat({ params }) {
                 <p>Ask a question to get started...</p>
               </div>
             ) : (
-              messages.map((message, index) => (
-                <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${
+                    msg.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
                   <div
                     className={`max-w-[80%] p-3 rounded-lg ${
-                      message.role === "user"
+                      msg.role === "user"
                         ? "bg-green-900/30 text-green-100"
                         : "bg-gray-900 text-green-400 border border-green-500/50"
                     }`}
                   >
-                    {message.role === "assistant" ? (
+                    {msg.role === "assistant" ? (
                       <div className="space-y-4">
                         <div
                           className="markdown-content latex-content"
-                          dangerouslySetInnerHTML={{ __html: message.content }}
+                          dangerouslySetInnerHTML={{ __html: msg.content }}
                         />
-
-                        {/* Post Question Button - Added at the end of each assistant message */}
                         <div className="flex justify-end mt-2">
                           <Button
                             variant="outline"
@@ -674,7 +564,7 @@ export default function AgentChat({ params }) {
                         </div>
                       </div>
                     ) : (
-                      <p>{message.content}</p>
+                      <p>{msg.content}</p>
                     )}
                   </div>
                 </div>
@@ -706,12 +596,14 @@ export default function AgentChat({ params }) {
                   className="min-h-[40px] max-h-[200px] bg-black border-green-500 text-green-100 font-mono resize-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSendMessage(e)
+                      e.preventDefault();
+                      handleSendMessage(e);
                     }
                   }}
                 />
-                <div className="text-xs text-green-500/50 mt-1">Press Shift+Enter for new line, Enter to send</div>
+                <div className="text-xs text-green-500/50 mt-1">
+                  Press Shift+Enter for new line, Enter to send
+                </div>
               </div>
               <Button
                 type="submit"
@@ -725,6 +617,7 @@ export default function AgentChat({ params }) {
         </Card>
       </main>
 
+      {/* Post-to-Community dialog */}
       <Dialog open={showPostDialog} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="bg-black border-green-500 text-green-500">
           <DialogHeader>
@@ -736,30 +629,40 @@ export default function AgentChat({ params }) {
 
           <div className="space-y-4 py-4">
             <div className="border border-green-500/50 p-3 rounded-lg">
-              <Badge variant="outline" className="mb-2 border-green-500 text-green-400">
+              <Badge
+                variant="outline"
+                className="mb-2 border-green-500 text-green-400"
+              >
                 Your Question
               </Badge>
               <p className="line-clamp-2 text-sm">
-                {lastQuestion.length > 100 ? `${lastQuestion.substring(0, 100)}...` : lastQuestion}
+                {lastQuestion.length > 100
+                  ? `${lastQuestion.substring(0, 100)}...`
+                  : lastQuestion}
               </p>
             </div>
 
             <div className="flex items-center gap-2 text-green-400">
-              <Badge variant="outline" className="border-green-500 text-green-400">
+              <Badge
+                variant="outline"
+                className="border-green-500 text-green-400"
+              >
                 Subject
               </Badge>
               <p>{currentAgent.subject}</p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-green-400">Reward Amount (ASK tokens)</label>
+              <label className="text-sm text-green-400">
+                Reward Amount (ASK tokens)
+              </label>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
                   min="0.1"
                   step="0.1"
                   value={reward}
-                  onChange={(e) => setReward(Number.parseFloat(e.target.value))}
+                  onChange={(e) => setReward(parseFloat(e.target.value))}
                   className="bg-black border-green-500 text-green-100"
                 />
                 <Badge className="bg-green-700 text-white">ASK</Badge>
@@ -769,7 +672,9 @@ export default function AgentChat({ params }) {
             {status !== "authenticated" && (
               <div className="flex items-center gap-2 text-yellow-500 p-2 border border-yellow-500/30 rounded-lg bg-yellow-900/20">
                 <AlertCircle className="h-4 w-4" />
-                <p className="text-sm">Please sign in with your wallet to post a question</p>
+                <p className="text-sm">
+                  Please sign in with your wallet to post a question
+                </p>
               </div>
             )}
           </div>
@@ -779,14 +684,11 @@ export default function AgentChat({ params }) {
               variant="outline"
               className="border-green-500 text-green-500"
               onClick={() => {
-                console.log("'It's Satisfactory' button clicked")
-                setShowPostDialog(false)
-
-                // Force re-rendering of MathJax and highlighting content after closing
+                setShowPostDialog(false);
                 setTimeout(() => {
-                  typesetMath()
-                  highlightCode()
-                }, 200)
+                  typesetMath();
+                  highlightCode();
+                }, 200);
               }}
             >
               It's Satisfactory
@@ -794,10 +696,7 @@ export default function AgentChat({ params }) {
 
             <Button
               className="bg-green-700 hover:bg-green-600 text-white border border-green-500"
-              onClick={() => {
-                console.log("'Post Question' button clicked")
-                handlePostQuestion()
-              }}
+              onClick={handlePostQuestion}
               disabled={isPostingQuestion || status !== "authenticated"}
             >
               {isPostingQuestion ? (
@@ -813,6 +712,5 @@ export default function AgentChat({ params }) {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
-

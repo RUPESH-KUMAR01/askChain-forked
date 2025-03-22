@@ -6,7 +6,7 @@ import { getQuestionFromIPFS } from '@/lib/pinata';
 export async function GET(request, { params }) {
   try {
     console.log('Question details GET handler started');
-    const { id } = params;
+    const { id } = await Promise.resolve(params);
     
     if (!id) {
       console.log('Validation failed: Missing question ID');
@@ -145,7 +145,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     console.log('Question update PUT handler started');
-    const { id } = params;
+    
     const body = await request.json();
     const { walletAddress, rewarded } = body;
     

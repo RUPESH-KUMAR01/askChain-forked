@@ -3,3 +3,4 @@ langchain-groq
 flask
 pydantic
 dotenv
+flask_cors
