@@ -5,13 +5,16 @@ To run endpoints as a standalone server (from project directory):
 2. finetune_endpoint - `python -m apps.endpoints.finetune_endpoint.py`
 
 For the ask_endpoints, you need to provide a json in the form of:
+```json
 {
     topics : ["", "", ...], 
     question : "", 
     details : ""
 }
+```
 
 For the finetune_endpoint, you need to provide a json in the form of:
+```json
 {
     {
         agent_name : "computer_science",
@@ -30,3 +33,4 @@ For the finetune_endpoint, you need to provide a json in the form of:
     },
     ...
 }
+```
