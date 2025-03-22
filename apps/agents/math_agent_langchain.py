@@ -42,18 +42,6 @@ class MathAgent(Agent):
     def finetune(self):
         """Placeholder for actual finetuning behavior for this specific kind of agent. Future issue"""
 
-def run_agent(topics: List[str], question: str, details: str):
-    agent = MathAgent()
-
-    q_prof = QuestionProfile(
-        topics=topics,
-        question=question,
-        details=details
-    )
-
-    response = agent.resolve_query(q_prof)
-    return response
-
 if __name__ == "__main__":
     agent = MathAgent()
 
