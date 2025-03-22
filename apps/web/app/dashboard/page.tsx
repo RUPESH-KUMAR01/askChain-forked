@@ -126,10 +126,30 @@ export default function Dashboard() {
   const [questions, setQuestions] = useState<any[]>([])
   const [myQuestions, setMyQuestions] = useState<any[]>([])
 
+  const [answers, setAnswers] = useState(0)
+  const [votes,setVotes] = useState(0)
+
+  const fetchVotes = async () => {
+    try {
+      const response = await fetch(`/api/users?walletAddress=${walletAddress}`)
+      if(!response.ok){
+        throw new Error(`Failed to fetch votes: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log(data)
+      setVotes(data.upvotes)
+      setAnswers(data.votedAnswers.length)
+    }catch (err) {
+      console.error("Error fetching votes:", err)
+    }
+  }
   // On mount, fetch community questions
   useEffect(() => {
     fetchQuestions()
-  }, [])
+    // fetchAnswers()
+    fetchVotes()
+  }, [walletAddress])
 
   // If user logs in, fetch their questions & balance
   useEffect(() => {
@@ -622,11 +642,11 @@ export default function Dashboard() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-green-900/10 rounded-lg border border-green-500/30 text-center">
                         <p className="text-sm text-green-400">Questions Answered</p>
-                        <p className="text-3xl font-bold text-green-300 mt-2">3</p>
+                        <p className="text-3xl font-bold text-green-300 mt-2">{answers}</p>
                       </div>
                       <div className="p-4 bg-green-900/10 rounded-lg border border-green-500/30 text-center">
                         <p className="text-sm text-green-400">Upvotes Received</p>
-                        <p className="text-3xl font-bold text-green-300 mt-2">2</p>
+                        <p className="text-3xl font-bold text-green-300 mt-2">{votes}</p>
                       </div>
                     </div>
                     {/* 
