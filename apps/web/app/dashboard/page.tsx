@@ -441,9 +441,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-green-200 bg-clip-text text-transparent">
                 AI Agents
               </h2>
-              <Button variant="outline" className="border-green-500 text-green-500">
-                Create Custom Agent
-              </Button>
+              {/* Removed: 'Create Custom Agent' button */}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <AgentCard
@@ -473,9 +471,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-green-200 bg-clip-text text-transparent">
                 Community Questions
               </h2>
-              <Button className="bg-green-700 hover:bg-green-600 text-white border border-green-500">
-                Ask New Question
-              </Button>
+              {/* Removed: 'Ask New Question' button */}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {questions.length > 0 ? (
@@ -492,9 +488,7 @@ export default function Dashboard() {
               ) : (
                 <div className="col-span-2 text-center py-16 border border-green-500/30 rounded-lg">
                   <p className="text-green-400 mb-4">No questions available at the moment</p>
-                  <Button className="bg-green-700 hover:bg-green-600 text-white border border-green-500">
-                    Be the first to ask
-                  </Button>
+                  {/* We can leave it blank or add something else if you want. */}
                 </div>
               )}
             </div>
@@ -506,9 +500,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-green-200 bg-clip-text text-transparent">
                 My Questions
               </h2>
-              <Button className="bg-green-700 hover:bg-green-600 text-white border border-green-500">
-                Ask New Question
-              </Button>
+              {/* Removed: 'Ask New Question' button */}
             </div>
             {myQuestions.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -526,9 +518,7 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-16 border border-green-500/30 rounded-lg">
                 <p className="text-green-400 mb-4">You haven't asked any questions yet.</p>
-                <Button className="bg-green-700 hover:bg-green-600 text-white border border-green-500">
-                  Ask Your First Question
-                </Button>
+                {/* We can leave it blank or add something else if you want. */}
               </div>
             )}
           </TabsContent>
