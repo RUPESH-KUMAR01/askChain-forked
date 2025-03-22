@@ -83,3 +83,74 @@ export async function POST(request){
         )
     }
 }
+
+
+export async function DELETE(request) {
+    try {
+      console.log("Deleting vote started")
+      const { searchParams } = new URL(request.url)
+      const answerId = searchParams.get('answerId')
+      const walletAddress = searchParams.get('walletAddress')
+      
+      console.log("Request data:", { answerId, walletAddress })
+      
+      if (!answerId || !walletAddress) {
+        console.log("Validation failed: Missing required fields")
+        return NextResponse.json(
+          { error: "Answer ID and wallet address are required" },
+          { status: 400 }
+        )
+      }
+      
+      console.log("Finding user with wallet address:", walletAddress)
+      const user = await prisma.user.findUnique({
+        where: { walletAddress }
+      })
+  
+      if (!user) {
+        console.log("User not found with wallet address:", walletAddress)
+        return NextResponse.json(
+          { error: "User not found. Please connect your wallet first." },
+          { status: 404 }
+        )
+      }
+      
+      console.log("User found:", user.id)
+      console.log("Finding vote for deletion")
+      
+      const vote = await prisma.vote.findFirst({
+        where: {
+          answerId,
+          voterId: user.id
+        }
+      })
+      
+      if (!vote) {
+        console.log("Vote not found for answerId:", answerId, "and voterId:", user.id)
+        return NextResponse.json(
+          { error: "Vote not found" },
+          { status: 404 }
+        )
+      }
+      
+      console.log("Vote found, deleting vote with ID:", vote.id)
+      
+      await prisma.vote.delete({
+        where: {
+          id: vote.id
+        }
+      })
+      
+      console.log("Vote deleted successfully")
+      return NextResponse.json(
+        { message: "Vote deleted successfully" },
+        { status: 200 }
+      )
+    } catch (err) {
+      console.log("Error in deleting vote", err)
+      return NextResponse.json(
+        { error: "Failed to delete vote", message: err.message },
+        { status: 500 }
+      )
+    }
+  }
