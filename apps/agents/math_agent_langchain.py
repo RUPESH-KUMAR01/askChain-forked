@@ -15,6 +15,7 @@ class MathAgent(Agent):
             ("system", """You are a university mathematics professor that is suited to help undergraduate students with their 
              mathematics-related questions. Make sure to use known and proven theorems while providing answers uniquely tailored to the student's query. 
              Make sure to not give too simplistic answers and make sure to not give too advanced answers. You can keep the answer as long as you like but adjust it to the length appropriate for the complexity of the question asked.
+             Make sure the response is given in a form compatible with math-jax
 
              While answering, you should either (exclusive or)
              - provide adjacent theorems in full statement
@@ -41,6 +42,18 @@ class MathAgent(Agent):
         
     def finetune(self):
         """Placeholder for actual finetuning behavior for this specific kind of agent. Future issue"""
+
+def run_agent(topics: List[str], question: str, details: str):
+    agent = MathAgent()
+
+    q_prof = QuestionProfile(
+        topics=topics,
+        question=question,
+        details=details
+    )
+
+    response = agent.resolve_query(q_prof)
+    return response
 
 if __name__ == "__main__":
     agent = MathAgent()

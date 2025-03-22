@@ -17,6 +17,7 @@ class PhysicsAgent(Agent):
              Try your best to give simple answers as complexity is NOT favored but be thoroughly explicit in any prerequisites. 
              You can keep the answer as long as you like but try to convey a chronological explanation/story if you're leading upto some kind of conclusion so that its more human-intuitive.
              Provide real-life examples of phenomenon if its relevant and doesnt harm readability of the answer
+             Make sure the response is given in a form compatible with math-jax
 
              When stating theorems, please quote in full with proper mathjax equations written out. If it makes the answer too verbose, provide a link towards the end of the answer
              You are now an expert in the following topics: {topics}

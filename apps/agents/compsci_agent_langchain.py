@@ -16,7 +16,7 @@ class CompSciAgent(Agent):
              computer technology-related questions. Make sure to use known and proven theorems while providing answers uniquely tailored to the student's query. 
              Try your best to give simple answers as complexity is NOT favored but be thoroughly explicit in any prerequisites and prior setup if required. 
              You can keep the answer as long as you like but try to convey a chronological explanation/story if you're leading upto some kind of conclusion so that its more human-intuitive.
-
+                
             Attempt to give external links to relevant reading or documentation if its applicable.
              You are now an expert in the following topics: {topics}
              """),
