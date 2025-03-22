@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 
 // Import your AskToken ABI and addresses from env
 import { askTokenAbi } from "@/lib/abis/askTokenAbi"
+import { askPlatformABI } from "@/lib/abis/askPlatformAbi"
 const askTokenAddress = process.env.NEXT_PUBLIC_ASK_TOKEN_ADDRESS || ""
 const askPlatformAddress = process.env.NEXT_PUBLIC_ASK_PLATFORM_ADDRESS || ""
 
@@ -370,6 +371,51 @@ export default function Dashboard() {
     window.location.href = "/"
   }
 
+  async function handleDistributeRewards() {
+    if (!window.ethereum) {
+      toast({
+        title: "MetaMask Required",
+        description: "Please install or enable MetaMask",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      toast({
+        title: "Processing",
+        description: "Distributing rewards...",
+      })
+
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      await provider.send("eth_requestAccounts", [])
+      const signer = await provider.getSigner()
+
+      const askPlatform = new ethers.Contract(askPlatformAddress, askPlatformABI, signer)
+
+      const tx = await askPlatform.distributeAllRewards()
+      console.log("distributeAllRewards tx:", tx.hash)
+
+      await tx.wait()
+      console.log("Rewards distributed successfully")
+
+      toast({
+        title: "Success",
+        description: "All rewards have been distributed!",
+      })
+
+      // Refresh balance after distributing rewards
+      fetchAskBalance()
+    } catch (err: any) {
+      console.error("Error distributing rewards:", err)
+      toast({
+        title: "Distribution Error",
+        description: err?.message || "Failed to distribute rewards",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="bg-black text-white min-h-screen">
       <Script
@@ -412,6 +458,16 @@ export default function Dashboard() {
               </span>
             </div>
             {session && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-green-500 text-green-500 hover:bg-green-500 hover:text-black transition-colors flex items-center gap-1.5"
+                  onClick={handleDistributeRewards}
+                  title="Distribute All Rewards"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -421,6 +477,7 @@ export default function Dashboard() {
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Logout</span>
               </Button>
+              </div>
             )}
           </div>
         </div>
@@ -428,30 +485,34 @@ export default function Dashboard() {
 
       <main className="container mx-auto py-8 px-6">
         <Tabs defaultValue="agents" className="w-full">
-          <TabsList className="grid grid-cols-4 mb-10 bg-black border border-green-500 rounded-xl overflow-hidden">
+        <TabsList className="grid grid-cols-4 mb-10 bg-black/50 border border-green-500/50 rounded-xl overflow-hidden p-1.5 gap-2">
             <TabsTrigger
               value="agents"
-              className="data-[state=active]:bg-green-900/30 data-[state=active]:text-green-400 py-3 transition-all duration-300"
+              className="data-[state=active]:bg-green-800 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border-green-500 data-[state=inactive]:bg-black/80 data-[state=inactive]:text-green-400/70 data-[state=inactive]:hover:bg-green-900/20 rounded-lg border border-transparent transition-all duration-300 flex items-center justify-center gap-2 h-10 leading-none"
             >
-              AI Agents
+              <Brain className="h-4 w-4" />
+              <span>AI Agents</span>
             </TabsTrigger>
             <TabsTrigger
               value="questions"
-              className="data-[state=active]:bg-green-900/30 data-[state=active]:text-green-400 py-3 transition-all duration-300"
+              className="data-[state=active]:bg-green-800 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border-green-500 data-[state=inactive]:bg-black/80 data-[state=inactive]:text-green-400/70 data-[state=inactive]:hover:bg-green-900/20 rounded-lg border border-transparent transition-all duration-300 flex items-center justify-center gap-2 h-10 leading-none"
             >
-              Community Questions
+              <Terminal className="h-4 w-4" />
+              <span>Community Questions</span>
             </TabsTrigger>
             <TabsTrigger
               value="my-questions"
-              className="data-[state=active]:bg-green-900/30 data-[state=active]:text-green-400 py-3 transition-all duration-300"
+              className="data-[state=active]:bg-green-800 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border-green-500 data-[state=inactive]:bg-black/80 data-[state=inactive]:text-green-400/70 data-[state=inactive]:hover:bg-green-900/20 rounded-lg border border-transparent transition-all duration-300 flex items-center justify-center gap-2 h-10 leading-none"
             >
-              My Questions
+              <Calculator className="h-4 w-4" />
+              <span>My Questions</span>
             </TabsTrigger>
             <TabsTrigger
               value="rewards"
-              className="data-[state=active]:bg-green-900/30 data-[state=active]:text-green-400 py-3 transition-all duration-300"
+              className="data-[state=active]:bg-green-800 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border-green-500 data-[state=inactive]:bg-black/80 data-[state=inactive]:text-green-400/70 data-[state=inactive]:hover:bg-green-900/20 rounded-lg border border-transparent transition-all duration-300 flex items-center justify-center gap-2 h-10 leading-none"
             >
-              My Rewards
+              <Award className="h-4 w-4" />
+              <span>My Rewards</span>
             </TabsTrigger>
           </TabsList>
 
