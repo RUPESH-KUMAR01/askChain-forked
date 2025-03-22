@@ -1,6 +1,7 @@
 # AskChain
-
+![AskChain Homepage](imgs/AskChain.png)
 ## Overview
+![AskChain Logo](imgs/AskChainLogo.png)
 AskChain is a crypto-incentivized Q&A platform that allows users to earn cryptocurrency rewards for answering academic questions. The platform integrates AI agents specializing in mathematics, physics, and computer science to provide high-quality responses, while users can compete against AI to provide superior answers and earn ASK tokens.
 
 ## Problem Statement
