@@ -1,9 +1,9 @@
 from flask import Flask, Request, request, jsonify
 from typing import List
-from agents.math_agent_langchain import MathAgent
-from agents.compsci_agent_langchain import CompSciAgent
-from agents.physics_agent_langchain import PhysicsAgent
-from agents.agent_utils import run_agent
+from apps.agents.math_agent_langchain import MathAgent
+from apps.agents.compsci_agent_langchain import CompSciAgent
+from apps.agents.physics_agent_langchain import PhysicsAgent
+from apps.agents.agent_utils import run_agent
 
 app = Flask(__name__)
 
@@ -31,7 +31,7 @@ def ask_math() -> jsonify:
         return jsonify({"error": str(e)}), 500
     
 @app.route("/compsci/ask", methods=["POST"])
-def ask_math() -> jsonify:
+def ask_compsci() -> jsonify:
     try:
         req: Request = request
         data: dict = req.json
@@ -50,7 +50,7 @@ def ask_math() -> jsonify:
         return jsonify({"error": str(e)}), 500
     
 @app.route("/physics/ask", methods=["POST"])
-def ask_math() -> jsonify:
+def ask_physics() -> jsonify:
     try:
         req: Request = request
         data: dict = req.json

@@ -1,7 +1,7 @@
 from langchain.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 
-from agent_utils import *
+from apps.agents.agent_utils import *
 from dotenv import load_dotenv
 import os
 

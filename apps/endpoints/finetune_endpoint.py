@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from collections import defaultdict
-from endpoint_utils import *
+from apps.endpoints.endpoint_utils import *
 import json
 import os
 
