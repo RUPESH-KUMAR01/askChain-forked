@@ -1,6 +1,21 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useParams } from "next/navigation"
+import Link from "next/link"
+import Script from "next/script"
+import {
+  Calculator,
+  Atom,
+  Brain,
+  Send,
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  X,
+} from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,131 +27,94 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Calculator, Atom, Brain, Send, ArrowLeft, Loader2, AlertCircle, X } from "lucide-react"
-import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import Script from "next/script"
 import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useSession } from "next-auth/react"
 
-export default function AgentChat({ params }) {
-  console.log("AgentChat component rendering with params:", params);
-  
-  // Get session info with next-auth
+export default function AgentChat() {
+  // We now use `useParams()` to read the [agent] route param
+  const { agent } = useParams()
+  const agentType = agent || "math" // fallback to "math" if no param is present
+  console.log("Agent type:", agentType)
+
+  // NextAuth session
   const { data: session, status } = useSession()
-  
-  // Unwrap params using React.use()
-  const unwrappedParams = React.use(params);
-  const agentType = unwrappedParams?.agent || "math";
-  
-  console.log("Agent type:", agentType);
-  console.log("Session status:", status);
-  console.log("Session data:", session);
 
+  // Local chat states
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [lastQuestion, setLastQuestion] = useState("")
+
+  // Dialog + posting states
   const [showPostDialog, setShowPostDialog] = useState(false)
   const [reward, setReward] = useState(0.1)
   const [isPostingQuestion, setIsPostingQuestion] = useState(false)
   const [postStatus, setPostStatus] = useState({ show: false, success: false, message: "" })
+
+  // Toast from our UI
   const { toast } = useToast()
 
-  const messagesEndRef = useRef(null)
-
-  const agentInfo = {
-    math: {
-      name: "Mathematics Agent",
-      icon: <Calculator className="h-6 w-6" />,
-      color: "text-blue-500",
-      subject: "MATH",
-    },
-    physics: {
-      name: "Physics Agent",
-      icon: <Atom className="h-6 w-6" />,
-      color: "text-purple-500",
-      subject: "PHYSICS",
-    },
-    chemistry: {
-      name: "Chemistry Agent",
-      icon: <Brain className="h-6 w-6" />,
-      color: "text-yellow-500",
-      subject: "COMPUTER_SCIENCE", // Assuming this maps to your enum, update as needed
-    },
+  // For auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
-
-  const currentAgent = agentInfo[agentType] || agentInfo.math
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  // Agent metadata
+  const agentInfo = {
+    math: {
+      name: "Mathematics Agent",
+      icon: <Calculator className="h-6 w-6" />,
+      subject: "MATH",
+    },
+    physics: {
+      name: "Physics Agent",
+      icon: <Atom className="h-6 w-6" />,
+      subject: "PHYSICS",
+    },
+    chemistry: {
+      name: "Chemistry Agent",
+      icon: <Brain className="h-6 w-6" />,
+      subject: "COMPUTER_SCIENCE",
+    },
   }
+  const currentAgent = agentInfo[agentType] || agentInfo.math
 
-  const handleSendMessage = async (e) => {
+  // Send a user message & get simulated AI reply
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("handleSendMessage called with input:", inputValue)
-    
-    if (!inputValue.trim()) {
-      console.log("Input is empty, returning early")
-      return
-    }
+    if (!inputValue.trim()) return
 
-    const userMessage = {
-      role: "user",
-      content: inputValue,
-    }
-
+    // Save user message
+    const userMessage = { role: "user", content: inputValue }
     setMessages((prev) => [...prev, userMessage])
     setLastQuestion(inputValue)
     setInputValue("")
     setIsLoading(true)
-    
-    console.log("Message added to chat, waiting for AI response...")
 
-    // Simulate AI response
+    // Simulated AI response after 2s
     setTimeout(() => {
-      const agentResponse = {
+      const assistantMessage = {
         role: "assistant",
-        content: generateResponse(agentType, inputValue),
+        content: generateResponse(agentType, userMessage.content),
       }
-      
-      console.log("AI response generated, updating chat")
-      setMessages((prev) => [...prev, agentResponse])
+      setMessages((prev) => [...prev, assistantMessage])
       setIsLoading(false)
-
-      // Show post dialog after response
-      console.log("Showing post dialog in 1 second")
-      setTimeout(() => {
-        setShowPostDialog(true)
-        console.log("Post dialog displayed")
-      }, 1000)
     }, 2000)
   }
 
+  // Attempt to post question
   const handlePostQuestion = async () => {
-    // Prevent double submission
-    if (isPostingQuestion) {
-      console.log("Already posting, preventing double submission")
-      return
-    }
-    
-    console.log("handlePostQuestion called - starting post process")
-    
-    // Get wallet address from session
+    if (isPostingQuestion) return // no double submit
+    console.log("Attempting to post question to community...")
+
     const walletAddress = session?.user?.walletAddress
-    
-    console.log("Wallet address from session:", walletAddress)
-    console.log("Last question:", lastQuestion)
-    console.log("Subject:", currentAgent.subject)
-    console.log("Reward:", reward)
-    
     if (!walletAddress) {
-      console.log("No wallet address found in session, showing toast")
       toast({
         title: "Authentication Required",
         description: "Please sign in with your wallet to post questions",
@@ -147,120 +125,92 @@ export default function AgentChat({ params }) {
     }
 
     setIsPostingQuestion(true)
-    console.log("isPostingQuestion set to true")
-    
-    setPostStatus({ 
-      show: true, 
-      success: false, 
-      message: "Posting your question to the community..." 
+    setPostStatus({
+      show: true,
+      success: false,
+      message: "Posting your question to the community...",
     })
-    console.log("Post status updated to show 'posting' message")
 
     try {
       const postData = {
         walletAddress,
         content: lastQuestion,
         subject: currentAgent.subject,
-        reward: reward,
+        reward,
       }
-      
-      console.log("Preparing to post question with data:", postData);
-      console.log("Calling fetch to /api/questions")
+      console.log("postData:", postData)
 
-      // Add a small delay to ensure state updates are reflected in the UI before fetch
-      await new Promise(resolve => setTimeout(resolve, 100));
-
+      await new Promise((res) => setTimeout(res, 100)) // small UI delay
       const response = await fetch("/api/questions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(postData),
-      });
+      })
 
-      console.log("Fetch completed with status:", response.status);
-      
       if (!response.ok) {
-        console.log("Response not OK:", response.status, response.statusText);
-        const errorText = await response.text();
-        console.log("Error response body:", errorText);
-        
-        let errorData;
+        const errorText = await response.text()
+        let errorData
         try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          console.log("Could not parse error response as JSON");
-          throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+          errorData = JSON.parse(errorText)
+        } catch {
+          throw new Error(`HTTP error: ${response.status} ${response.statusText}`)
         }
-        
-        throw new Error(errorData.error || errorData.message || "Failed to post question");
+        throw new Error(errorData.error || errorData.message || "Failed to post question")
       }
 
-      const data = await response.json();
-      console.log("Response from server:", data);
+      const data = await response.json()
+      console.log("Response from server:", data)
 
       setPostStatus({
         show: true,
         success: true,
-        message: `Question posted successfully! IPFS CID: ${data.pinataCid?.substring(0, 8) || "N/A"}...`
+        message: `Question posted successfully! IPFS CID: ${data.pinataCid?.substring(0, 8) || "N/A"}...`,
       })
-      console.log("Post status updated to success")
 
       toast({
         title: "Question Posted Successfully",
-        description: `Your question has been posted to the community${data.pinataCid ? ` with IPFS CID: ${data.pinataCid.substring(0, 8)}...` : ""}`,
-      });
-      console.log("Success toast displayed")
+        description: data.pinataCid
+          ? `Posted with IPFS CID: ${data.pinataCid.substring(0, 8)}...`
+          : "Your question is now on the community feed.",
+      })
 
-      // Add small delay before redirect
-      console.log("Will redirect to dashboard in 2 seconds")
+      // Redirect to dashboard after short delay
       setTimeout(() => {
-        const redirectUrl = `/dashboard?questionId=${data.questionId || ""}`;
-        console.log("Redirecting to:", redirectUrl);
-        window.location.href = redirectUrl;
-      }, 2000);
-      
-    } catch (error) {
-      console.error("Error posting question:", error);
-      
+        const redirectUrl = `/dashboard?questionId=${data.questionId || ""}`
+        window.location.href = redirectUrl
+      }, 2000)
+    } catch (error: any) {
+      console.error("Error posting question:", error)
       setPostStatus({
         show: true,
         success: false,
-        message: `Error: ${error.message}`
+        message: `Error: ${error.message}`,
       })
-      console.log("Post status updated to error")
-      
       toast({
         title: "Error Posting Question",
         description: error.message,
         variant: "destructive",
-      });
-      console.log("Error toast displayed")
+      })
     } finally {
-      console.log("Post process completed (success or failure)")
-      // Keep isPostingQuestion true if successful - we'll redirect anyway
-      // Only set to false if there was an error
       if (!postStatus.success) {
-        setIsPostingQuestion(false);
-        console.log("isPostingQuestion reset to false due to error")
+        setIsPostingQuestion(false)
       }
     }
   }
 
+  // Close the post status alert
   const handleClosePostStatus = () => {
-    console.log("Closing post status alert")
-    setPostStatus({ show: false, success: false, message: "" });
-    
-    // Only close dialog and reset posting state if it was an error
+    setPostStatus({ show: false, success: false, message: "" })
+    // If it was an error, also close the main dialog
     if (!postStatus.success) {
-      setShowPostDialog(false);
-      setIsPostingQuestion(false);
-      console.log("Dialog closed and posting state reset")
+      setShowPostDialog(false)
+      setIsPostingQuestion(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-black text-green-500 flex flex-col">
+      {/* HEADER */}
       <header className="border-b border-green-500/30 p-4">
         <div className="container mx-auto flex items-center">
           <Link href="/dashboard" className="mr-4">
@@ -273,7 +223,7 @@ export default function AgentChat({ params }) {
             {currentAgent.icon}
             <h1 className="text-xl font-bold">{currentAgent.name}</h1>
           </div>
-          
+
           {/* Session Info */}
           <div className="ml-auto text-xs text-green-400/50">
             Wallet: {session?.user?.walletAddress ? `${session.user.walletAddress.substring(0, 6)}...` : "Not connected"}
@@ -281,7 +231,9 @@ export default function AgentChat({ params }) {
         </div>
       </header>
 
+      {/* MAIN CONTENT */}
       <main className="flex-1 container mx-auto p-4 flex flex-col">
+        {/* If we have a posting status alert, show it */}
         {postStatus.show && (
           <Alert className={`mb-4 ${postStatus.success ? "bg-green-900/30 border-green-500" : "bg-red-900/30 border-red-500"}`}>
             <div className="flex justify-between items-start">
@@ -289,14 +241,12 @@ export default function AgentChat({ params }) {
                 <AlertTitle className={postStatus.success ? "text-green-400" : "text-red-400"}>
                   {postStatus.success ? "Success" : "Error"}
                 </AlertTitle>
-                <AlertDescription className="text-green-100">
-                  {postStatus.message}
-                </AlertDescription>
+                <AlertDescription className="text-green-100">{postStatus.message}</AlertDescription>
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-green-500 h-8 w-8" 
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-green-500 h-8 w-8"
                 onClick={handleClosePostStatus}
               >
                 <X className="h-4 w-4" />
@@ -305,6 +255,7 @@ export default function AgentChat({ params }) {
           </Alert>
         )}
 
+        {/* Chat Card */}
         <Card className="flex-1 border-green-500 bg-black overflow-hidden flex flex-col">
           <CardHeader className="border-b border-green-500/30">
             <CardTitle className="text-lg">Chat with {currentAgent.name}</CardTitle>
@@ -321,28 +272,41 @@ export default function AgentChat({ params }) {
                 <p>Ask a question to get started...</p>
               </div>
             ) : (
-              messages.map((message, index) => (
-                <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[80%] p-3 rounded-lg ${
-                      message.role === "user"
-                        ? "bg-green-900/30 text-green-100"
-                        : "bg-gray-900 text-green-400 border border-green-500/50"
-                    }`}
-                  >
-                    {message.role === "assistant" ? (
-                      <div
-                        className="latex-content"
-                        dangerouslySetInnerHTML={{
-                          __html: message.content.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
-                        }}
-                      />
-                    ) : (
-                      <p>{message.content}</p>
-                    )}
-                  </div>
-                </div>
-              ))
+              messages.map((message, index) => {
+                // If it's an assistant response, we show a "Not satisfied? Post question" button under it
+                if (message.role === "assistant") {
+                  return (
+                    <div key={index} className="flex justify-start">
+                      <div className="max-w-[80%] p-3 rounded-lg bg-gray-900 text-green-400 border border-green-500/50">
+                        <div
+                          className="latex-content"
+                          dangerouslySetInnerHTML={{
+                            __html: message.content.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
+                          }}
+                        />
+                        {/* Button to open the post dialog */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-green-500 text-green-500"
+                          onClick={() => setShowPostDialog(true)}
+                        >
+                          Not satisfied? Post question
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                } else {
+                  // It's a user message
+                  return (
+                    <div key={index} className="flex justify-end">
+                      <div className="max-w-[80%] p-3 rounded-lg bg-green-900/30 text-green-100">
+                        <p>{message.content}</p>
+                      </div>
+                    </div>
+                  )
+                }
+              })
             )}
 
             {isLoading && (
@@ -379,10 +343,8 @@ export default function AgentChat({ params }) {
         </Card>
       </main>
 
-      <Dialog open={showPostDialog} onOpenChange={(open) => {
-        console.log("Dialog open state changing to:", open);
-        setShowPostDialog(open);
-      }}>
+      {/* Dialog for posting question */}
+      <Dialog open={showPostDialog} onOpenChange={setShowPostDialog}>
         <DialogContent className="bg-black border-green-500 text-green-500">
           <DialogHeader>
             <DialogTitle>Was this answer satisfactory?</DialogTitle>
@@ -433,20 +395,14 @@ export default function AgentChat({ params }) {
             <Button
               variant="outline"
               className="border-green-500 text-green-500"
-              onClick={() => {
-                console.log("'It's Satisfactory' button clicked");
-                setShowPostDialog(false);
-              }}
+              onClick={() => setShowPostDialog(false)}
             >
               It's Satisfactory
             </Button>
-            
+
             <Button
               className="bg-green-700 hover:bg-green-600 text-white border border-green-500"
-              onClick={() => {
-                console.log("'Post Question' button clicked");
-                handlePostQuestion();
-              }}
+              onClick={handlePostQuestion}
               disabled={isPostingQuestion || status !== "authenticated"}
             >
               {isPostingQuestion ? (
@@ -466,9 +422,9 @@ export default function AgentChat({ params }) {
 }
 
 // Helper function to generate mock responses
-function generateResponse(agent, question) {
-  console.log(`Generating response for ${agent} agent with question:`, question);
-  
+function generateResponse(agent: string, question: string) {
+  console.log(`Generating response for ${agent} agent with question:`, question)
+
   const responses = {
     math: [
       "To solve this equation, you need to apply the chain rule of differentiation. For a function $$f(g(x))$$, the derivative is $$f'(g(x)) \\cdot g'(x)$$.",
@@ -488,7 +444,7 @@ function generateResponse(agent, question) {
   }
 
   const agentResponses = responses[agent] || responses.math
-  const response = agentResponses[Math.floor(Math.random() * agentResponses.length)];
-  console.log("Generated response:", response);
-  return response;
+  const response = agentResponses[Math.floor(Math.random() * agentResponses.length)]
+  console.log("Generated response:", response)
+  return response
 }

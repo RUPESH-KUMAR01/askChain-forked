@@ -61,7 +61,7 @@ export default function ConnectWallet() {
         <CardHeader>
           <CardTitle className="text-green-500">Connect Your Wallet</CardTitle>
           <CardDescription className="text-green-400">
-            Connect your MetaMask wallet to register and receive 100 ASK tokens
+            Connect your MetaMask wallet to login/register
           </CardDescription>
         </CardHeader>
         <CardContent>

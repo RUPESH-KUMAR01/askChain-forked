@@ -134,11 +134,12 @@ export default function QuestionDetail({ params }) {
     }
   }
 
-  const handleVoteClick = (answerId, isUpvote) => {
+  const handleVoteClick = async (answerId, isUpvote) => {
     // Check if user has already voted on this answer
     if (userVotes[answerId]) {
       // If trying to vote the same way again, do nothing
       if (userVotes[answerId] === (isUpvote ? "up" : "down")) {
+        //delete the record from the table if the user is trying to vote the same way again
         return
       }
     }
@@ -369,18 +370,6 @@ export default function QuestionDetail({ params }) {
                         <ThumbsUp className="h-4 w-4" />
                       </Button>
                       <span className="text-sm">{answer.voteCount || 0}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`h-8 w-8 ${userVotes[answer.id] === "down" ? "text-red-400 bg-red-900/30" : "text-green-500"}`}
-                        onClick={() => handleVoteClick(answer.id, false)}
-                      >
-                        <ThumbsDown className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm">0</span> {/* Placeholder - our API doesn't track downvotes separately */}
                     </div>
                   </div>
                 </CardFooter>
