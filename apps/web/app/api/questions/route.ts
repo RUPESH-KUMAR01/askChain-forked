@@ -132,12 +132,14 @@ export async function GET(request) {
 
       questions = await prisma.question.findMany({
         where: { askerId: user.id },
-        select: { id: true, pinataCid: true, subject: true, reward: true, createdAt: true}
+        select: { id: true, pinataCid: true, subject: true, reward: true, createdAt: true},
+        orderBy: { createdAt: 'desc' }
       });
     } else {
       // Fetch all questions
       questions = await prisma.question.findMany({
-        select: { id: true, pinataCid: true, subject: true, reward: true, createdAt: true }
+        select: { id: true, pinataCid: true, subject: true, reward: true, createdAt: true },
+        orderBy: { createdAt: 'desc' }
       });
     }
 

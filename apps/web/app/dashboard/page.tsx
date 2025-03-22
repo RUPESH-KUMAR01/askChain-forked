@@ -132,8 +132,12 @@ export default function Dashboard() {
   const [answers, setAnswers] = useState(0)
   const [votes,setVotes] = useState(0)
 
+  const [loadingQuestions, setLoadingQuestions] = useState(false)
+  const [loadingMyQuestions, setLoadingMyQuestions] = useState(false)
+
   const fetchVotes = async () => {
     try {
+      if(!walletAddress) return
       const response = await fetch(`/api/users?walletAddress=${walletAddress}`)
       if(!response.ok){
         return
@@ -210,24 +214,30 @@ export default function Dashboard() {
 
   // 1. Fetch community questions
   async function fetchQuestions() {
+    setLoadingQuestions(true)
     try {
       const res = await fetch("/api/questions")
       const data = await res.json()
       setQuestions(data)
     } catch (err) {
       console.error("Error fetching questions:", err)
+    } finally{
+      setLoadingQuestions(false);
     }
   }
 
   // 2. Fetch user's questions
   async function fetchMyQuestions() {
     if (!walletAddress) return
+    setLoadingMyQuestions(true);
     try {
       const res = await fetch(`/api/questions?walletAddress=${walletAddress}`)
       const data = await res.json()
       setMyQuestions(data)
     } catch (err) {
       console.error("Error fetching user questions:", err)
+    }finally {
+      setLoadingMyQuestions(false)
     }
   }
 
@@ -554,9 +564,18 @@ export default function Dashboard() {
               </h2>
               {/* Removed: 'Ask New Question' button */}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {questions.length > 0 ? (
-                questions.map((q) => (
+              {loadingQuestions ? (
+              <div className="flex justify-center items-center py-16">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="animate-spin">
+                    <RefreshCw className="h-8 w-8 text-green-400" />
+                  </div>
+                  <p className="text-green-400">Loading questions...</p>
+                </div>
+              </div>
+            ) : questions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {questions.map((q) => (
                   <QuestionCard
                     key={q.id}
                     id={q.id}
@@ -565,14 +584,13 @@ export default function Dashboard() {
                     reward={q.reward}
                     timeLeft={q.createdAt}
                   />
-                ))
-              ) : (
-                <div className="col-span-2 text-center py-16 border border-green-500/30 rounded-lg">
-                  <p className="text-green-400 mb-4">No questions available at the moment</p>
-                  {/* We can leave it blank or add something else if you want. */}
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 border border-green-500/30 rounded-lg">
+                <p className="text-green-400 mb-4">You haven't asked any questions yet.</p>
+              </div>
+            )}
           </TabsContent>
 
           {/* My Questions */}
@@ -583,7 +601,16 @@ export default function Dashboard() {
               </h2>
               {/* Removed: 'Ask New Question' button */}
             </div>
-            {myQuestions.length > 0 ? (
+            {loadingMyQuestions ? (
+              <div className="flex justify-center items-center py-16">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="animate-spin">
+                    <RefreshCw className="h-8 w-8 text-green-400" />
+                  </div>
+                  <p className="text-green-400">Loading your questions...</p>
+                </div>
+              </div>
+            ) : myQuestions.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {myQuestions.map((q) => (
                   <QuestionCard
@@ -599,7 +626,6 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-16 border border-green-500/30 rounded-lg">
                 <p className="text-green-400 mb-4">You haven't asked any questions yet.</p>
-                {/* We can leave it blank or add something else if you want. */}
               </div>
             )}
           </TabsContent>
