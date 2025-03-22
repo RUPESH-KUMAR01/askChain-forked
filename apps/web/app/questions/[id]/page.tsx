@@ -248,23 +248,46 @@ export default function QuestionDetail() {
 
       // 4b. Also increment in your DB (so your next fetch sees updated votesCount)
       console.log("Also calling local /api/answers/upvote to update DB...");
-      const upResp = await fetch("/api/answers/upvote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: question.id, // or question.dbId if your backend uses that
-          answerId: ansDbId,
-        }),
-      });
-      if (!upResp.ok) {
-        const errText = await upResp.text();
-        console.warn("Local DB upvote route error:", errText);
-      } else {
-        console.log("Local DB upvote route success!");
+      try {
+        // In a real implementation, you would have an API route for voting
+        const response = await fetch('/api/votes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            answerId: ansDbId,
+            walletAddress: walletAddress,
+            isUpvote: isUpvote
+          }),
+        })
+  
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to submit vote')
+        }
+  
+        // Update local state to reflect vote
+        const updatedAnswers = answers.map(answer => {
+          if (answer.id === id) {
+            return {
+              ...answer,
+              voteCount: isUpvote 
+                ? (answer.voteCount || 0) + 1 
+                : (answer.voteCount || 0) - 1
+            }
+          }
+          return answer;
+        });
+  
+        setAnswers(updatedAnswers);
+  
+      } catch (err) {
+        console.error("Error submitting vote:", err)
+        setError(err.message || "Failed to submit your vote. Please try again.")
       }
-
-      // 4c. Re-fetch from DB
-      fetchQuestionData(questionId);
+  
+      setShowVoteDialog(false)
     } catch (err: any) {
       console.error("Error upvoting on-chain:", err);
       setError(err.message || "Failed to upvote on the contract.");
