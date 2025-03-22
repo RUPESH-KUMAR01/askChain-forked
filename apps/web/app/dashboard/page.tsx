@@ -15,69 +15,39 @@ export default function Dashboard() {
   const { data: session, status } = useSession()
   const [askTokens, setAskTokens] = useState(100)
   const [connectedAddress, setConnectedAddress] = useState("Not connected")
+  const [questions, setQuestions] = useState([]);
+  const [myQuestions, setMyQuestions] = useState([]);
+  const walletAddress = session?.user?.walletAddress
+  const fetchQuestions = () => {
+    fetch("/api/questions")
+      .then((res) => res.json())
+      .then((data) => setQuestions(data))
+      .catch((err) => console.error("Error fetching questions:", err));
+  };
 
+  const fetchMyQuestions = () => {
+    if (walletAddress) {
+      fetch(`/api/questions?walletAddress=${walletAddress}`)
+        .then((res) => res.json())
+        .then((data) => setMyQuestions(data))
+        .catch((err) => console.error("Error fetching user questions:", err));
+    }
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  useEffect(() => {
+    fetchMyQuestions();
+  }, [session]);
+  
   // Update connected address when session data is available
   useEffect(() => {
-    if (session?.user?.walletAddress) {
-      setConnectedAddress(session.user.walletAddress)
-      
-      // If you have askTokens in the session, you can update that too
-      if (session.user.askTokens) {
-        setAskTokens(session.user.askTokens)
-      }
+    if (walletAddress) {
+      setConnectedAddress(walletAddress)
     }
-  }, [session])
-
-  // Add state for questions data
-  const [questions, setQuestions] = useState([
-    {
-      id: "1",
-      title: "How do I solve this differential equation: $$\\frac{dy}{dx} = y^2 \\cdot \\sin(x)$$?",
-      category: "Mathematics",
-      reward: 0.2,
-      answers: 3,
-      timeLeft: "12 hours",
-      isOwn: false,
-    },
-    {
-      id: "2",
-      title:
-        "Explain the concept of quantum entanglement and its implications for $$|\\psi\\rangle = \\frac{1}{\\sqrt{2}}(|0\\rangle|1\\rangle - |1\\rangle|0\\rangle)$$",
-      category: "Physics",
-      reward: 0.5,
-      answers: 1,
-      timeLeft: "18 hours",
-      isOwn: false,
-    },
-    {
-      id: "3",
-      title: "What is the mechanism behind the Grignard reaction with $$\\ce{RMgX + C=O -> R-C-OMgX}$$?",
-      category: "Chemistry",
-      reward: 0.1,
-      answers: 0,
-      timeLeft: "23 hours",
-      isOwn: false,
-    },
-    {
-      id: "4",
-      title: "Prove that $$\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$$ using mathematical induction",
-      category: "Mathematics",
-      reward: 0.3,
-      answers: 2,
-      timeLeft: "10 hours",
-      isOwn: true,
-    },
-    {
-      id: "5",
-      title:
-        "Explain how to derive the Schrödinger equation $$i\\hbar\\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r},t) = \\hat{H}\\Psi(\\mathbf{r},t)$$",
-      category: "Physics",
-      reward: 0.4,
-      answers: 1,
-      timeLeft: "5 hours",
-      isOwn: true,
-    },
-  ])
+  }, [session, walletAddress])
 
   // Handle logout function
   const handleLogout = () => {
@@ -188,57 +158,46 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* Update the questions TabsContent to sort questions by reward */}
-          <TabsContent value="questions">
-            <h2 className="text-2xl font-bold mb-4">Community Questions</h2>
+
+          {/* Add a new TabsContent for "My Questions" */}
+          <TabsContent value="my-questions">
+            <h2 className="text-2xl font-bold mb-4">My Questions</h2>
             <div className="space-y-4">
-              {questions
-                .filter((q) => !q.isOwn)
-                .sort((a, b) => b.reward - a.reward) // Sort by reward in descending order
-                .map((question) => (
+              {Array.isArray(myQuestions) && myQuestions.length > 0 ? (
+                myQuestions.map((question) => (
                   <QuestionCard
                     key={question.id}
                     id={question.id}
                     title={question.title}
                     category={question.category}
                     reward={question.reward}
-                    answers={question.answers}
-                    timeLeft={question.timeLeft}
+                    timeLeft={question.createdAt}
                   />
-                ))}
+                ))
+              ) : (
+                <p className="text-green-400">No questions available</p>
+              )}
             </div>
           </TabsContent>
-
-          {/* Add a new TabsContent for "My Questions" */}
-          <TabsContent value="my-questions">
-            <h2 className="text-2xl font-bold mb-4">My Questions</h2>
-            {session ? (
-              <div className="space-y-4">
-                {questions
-                  .filter((q) => q.isOwn)
-                  .map((question) => (
-                    <MyQuestionCard
-                      key={question.id}
-                      id={question.id}
-                      title={question.title}
-                      category={question.category}
-                      reward={question.reward}
-                      answers={question.answers}
-                      timeLeft={question.timeLeft}
-                    />
-                  ))}
-              </div>
-            ) : (
-              <div className="border border-green-500 rounded-md p-6 text-center">
-                <p className="text-green-400">Please connect your wallet to view your questions</p>
-                <Link href="/connect">
-                  <Button className="mt-4 bg-green-700 hover:bg-green-600 text-white border border-green-500">
-                    Connect Wallet
-                  </Button>
-                </Link>
-              </div>
-            )}
+          <TabsContent value="questions">
+            <h2 className="text-2xl font-bold mb-4">Community Questions</h2>
+            <div className="space-y-4">
+              {Array.isArray(questions) && questions.length > 0 ? (
+                questions.map((question) => (
+                  <QuestionCard
+                    key={question.id}
+                    id={question.id}
+                    title={question.title}
+                    category={question.category}
+                    reward={question.reward}
+                    timeLeft={question.createdAt}
+                  />
+                ))
+              ) : (
+                <p className="text-green-400">No questions available</p>
+              )}
+            </div>
           </TabsContent>
-
           <TabsContent value="rewards">
             <h2 className="text-2xl font-bold mb-4">My Rewards</h2>
             {session ? (
@@ -288,8 +247,8 @@ function AgentCard({ title, icon, description, href }) {
   )
 }
 
-// Update the QuestionCard component to include the id parameter
-function QuestionCard({ id, title, category, reward, answers, timeLeft }) {
+// Update the QuestionCard component to properly link to the question page
+function QuestionCard({ id, title, category, reward, timeLeft }) {
   return (
     <Card className="border-green-500 bg-black">
       <CardHeader>
@@ -311,10 +270,11 @@ function QuestionCard({ id, title, category, reward, answers, timeLeft }) {
       <CardContent>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            <span className="text-sm text-green-400">{answers} answers</span>
+            <Badge variant="outline" className="border-green-500 text-green-400">
+              {new Date(timeLeft) < new Date() ? 'Expired' : 'Up for Grabs'}
+            </Badge>
           </div>
-          <div className="text-sm text-green-400">Ends in: {timeLeft}</div>
+          <div className="text-sm text-green-400">Posted on: {extractDate(timeLeft)}</div>
           <Link href={`/questions/${id}`}>
             <Button variant="outline" className="border-green-500 text-green-500">
               View Question
@@ -326,9 +286,13 @@ function QuestionCard({ id, title, category, reward, answers, timeLeft }) {
   )
 }
 
-// Add the MyQuestionCard component at the end of the file
-function MyQuestionCard({ id, title, category, reward, answers, timeLeft }) {
-  const isExpired = timeLeft.includes("Expired") || Number.parseInt(timeLeft.split(" ")[0]) <= 0
+function extractDate(timestamp) {
+  return timestamp.split("T")[0]; 
+}
+
+// Update MyQuestionCard component to properly link to the question page
+function MyQuestionCard({ id, title, category, reward, timeLeft, answers = 0 }) {
+  const isExpired = new Date(timeLeft) < new Date();
 
   return (
     <Card className="border-green-500 bg-black">
@@ -351,10 +315,11 @@ function MyQuestionCard({ id, title, category, reward, answers, timeLeft }) {
       <CardContent>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            <span className="text-sm text-green-400">{answers} answers</span>
+            <Badge variant="outline" className="border-green-500 text-green-400">
+              {isExpired ? 'Expired' : 'Up for Grabs'}
+            </Badge>
           </div>
-          <div className="text-sm text-green-400">{isExpired ? "Expired - Award Reward" : `Ends in: ${timeLeft}`}</div>
+          <div className="text-sm text-green-400">{`Posted on: ${extractDate(timeLeft)}`}</div>
           <div className="flex gap-2">
             <Link href={`/questions/${id}`}>
               <Button variant="outline" className="border-green-500 text-green-500">

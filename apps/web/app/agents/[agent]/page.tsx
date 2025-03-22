@@ -12,15 +12,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Calculator, Atom, Brain, Send, ArrowLeft, Loader2 } from "lucide-react"
+import { Calculator, Atom, Brain, Send, ArrowLeft, Loader2, AlertCircle, X } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import Script from "next/script"
+import { useToast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useSession } from "next-auth/react"
 
 export default function AgentChat({ params }) {
+  console.log("AgentChat component rendering with params:", params);
+  
+  // Get session info with next-auth
+  const { data: session, status } = useSession()
+  
   // Unwrap params using React.use()
   const unwrappedParams = React.use(params);
-  const agentType = unwrappedParams.agent;
+  const agentType = unwrappedParams?.agent || "math";
+  
+  console.log("Agent type:", agentType);
+  console.log("Session status:", status);
+  console.log("Session data:", session);
 
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState("")
@@ -28,6 +40,9 @@ export default function AgentChat({ params }) {
   const [lastQuestion, setLastQuestion] = useState("")
   const [showPostDialog, setShowPostDialog] = useState(false)
   const [reward, setReward] = useState(0.1)
+  const [isPostingQuestion, setIsPostingQuestion] = useState(false)
+  const [postStatus, setPostStatus] = useState({ show: false, success: false, message: "" })
+  const { toast } = useToast()
 
   const messagesEndRef = useRef(null)
 
@@ -36,16 +51,19 @@ export default function AgentChat({ params }) {
       name: "Mathematics Agent",
       icon: <Calculator className="h-6 w-6" />,
       color: "text-blue-500",
+      subject: "MATH",
     },
     physics: {
       name: "Physics Agent",
       icon: <Atom className="h-6 w-6" />,
       color: "text-purple-500",
+      subject: "PHYSICS",
     },
     chemistry: {
       name: "Chemistry Agent",
       icon: <Brain className="h-6 w-6" />,
       color: "text-yellow-500",
+      subject: "COMPUTER_SCIENCE", // Assuming this maps to your enum, update as needed
     },
   }
 
@@ -61,7 +79,12 @@ export default function AgentChat({ params }) {
 
   const handleSendMessage = async (e) => {
     e.preventDefault()
-    if (!inputValue.trim()) return
+    console.log("handleSendMessage called with input:", inputValue)
+    
+    if (!inputValue.trim()) {
+      console.log("Input is empty, returning early")
+      return
+    }
 
     const userMessage = {
       role: "user",
@@ -72,6 +95,8 @@ export default function AgentChat({ params }) {
     setLastQuestion(inputValue)
     setInputValue("")
     setIsLoading(true)
+    
+    console.log("Message added to chat, waiting for AI response...")
 
     // Simulate AI response
     setTimeout(() => {
@@ -79,21 +104,159 @@ export default function AgentChat({ params }) {
         role: "assistant",
         content: generateResponse(agentType, inputValue),
       }
-
+      
+      console.log("AI response generated, updating chat")
       setMessages((prev) => [...prev, agentResponse])
       setIsLoading(false)
 
       // Show post dialog after response
+      console.log("Showing post dialog in 1 second")
       setTimeout(() => {
         setShowPostDialog(true)
+        console.log("Post dialog displayed")
       }, 1000)
     }, 2000)
   }
 
-  const handlePostQuestion = () => {
-    // Logic to post question to community
-    setShowPostDialog(false)
-    // Redirect to dashboard or show confirmation
+  const handlePostQuestion = async () => {
+    // Prevent double submission
+    if (isPostingQuestion) {
+      console.log("Already posting, preventing double submission")
+      return
+    }
+    
+    console.log("handlePostQuestion called - starting post process")
+    
+    // Get wallet address from session
+    const walletAddress = session?.user?.walletAddress
+    
+    console.log("Wallet address from session:", walletAddress)
+    console.log("Last question:", lastQuestion)
+    console.log("Subject:", currentAgent.subject)
+    console.log("Reward:", reward)
+    
+    if (!walletAddress) {
+      console.log("No wallet address found in session, showing toast")
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in with your wallet to post questions",
+        variant: "destructive",
+      })
+      setShowPostDialog(false)
+      return
+    }
+
+    setIsPostingQuestion(true)
+    console.log("isPostingQuestion set to true")
+    
+    setPostStatus({ 
+      show: true, 
+      success: false, 
+      message: "Posting your question to the community..." 
+    })
+    console.log("Post status updated to show 'posting' message")
+
+    try {
+      const postData = {
+        walletAddress,
+        content: lastQuestion,
+        subject: currentAgent.subject,
+        reward: reward,
+      }
+      
+      console.log("Preparing to post question with data:", postData);
+      console.log("Calling fetch to /api/questions")
+
+      // Add a small delay to ensure state updates are reflected in the UI before fetch
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const response = await fetch("/api/questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData),
+      });
+
+      console.log("Fetch completed with status:", response.status);
+      
+      if (!response.ok) {
+        console.log("Response not OK:", response.status, response.statusText);
+        const errorText = await response.text();
+        console.log("Error response body:", errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          console.log("Could not parse error response as JSON");
+          throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+        }
+        
+        throw new Error(errorData.error || errorData.message || "Failed to post question");
+      }
+
+      const data = await response.json();
+      console.log("Response from server:", data);
+
+      setPostStatus({
+        show: true,
+        success: true,
+        message: `Question posted successfully! IPFS CID: ${data.pinataCid?.substring(0, 8) || "N/A"}...`
+      })
+      console.log("Post status updated to success")
+
+      toast({
+        title: "Question Posted Successfully",
+        description: `Your question has been posted to the community${data.pinataCid ? ` with IPFS CID: ${data.pinataCid.substring(0, 8)}...` : ""}`,
+      });
+      console.log("Success toast displayed")
+
+      // Add small delay before redirect
+      console.log("Will redirect to dashboard in 2 seconds")
+      setTimeout(() => {
+        const redirectUrl = `/dashboard?questionId=${data.questionId || ""}`;
+        console.log("Redirecting to:", redirectUrl);
+        window.location.href = redirectUrl;
+      }, 2000);
+      
+    } catch (error) {
+      console.error("Error posting question:", error);
+      
+      setPostStatus({
+        show: true,
+        success: false,
+        message: `Error: ${error.message}`
+      })
+      console.log("Post status updated to error")
+      
+      toast({
+        title: "Error Posting Question",
+        description: error.message,
+        variant: "destructive",
+      });
+      console.log("Error toast displayed")
+    } finally {
+      console.log("Post process completed (success or failure)")
+      // Keep isPostingQuestion true if successful - we'll redirect anyway
+      // Only set to false if there was an error
+      if (!postStatus.success) {
+        setIsPostingQuestion(false);
+        console.log("isPostingQuestion reset to false due to error")
+      }
+    }
+  }
+
+  const handleClosePostStatus = () => {
+    console.log("Closing post status alert")
+    setPostStatus({ show: false, success: false, message: "" });
+    
+    // Only close dialog and reset posting state if it was an error
+    if (!postStatus.success) {
+      setShowPostDialog(false);
+      setIsPostingQuestion(false);
+      console.log("Dialog closed and posting state reset")
+    }
   }
 
   return (
@@ -110,10 +273,38 @@ export default function AgentChat({ params }) {
             {currentAgent.icon}
             <h1 className="text-xl font-bold">{currentAgent.name}</h1>
           </div>
+          
+          {/* Session Info */}
+          <div className="ml-auto text-xs text-green-400/50">
+            Wallet: {session?.user?.walletAddress ? `${session.user.walletAddress.substring(0, 6)}...` : "Not connected"}
+          </div>
         </div>
       </header>
 
       <main className="flex-1 container mx-auto p-4 flex flex-col">
+        {postStatus.show && (
+          <Alert className={`mb-4 ${postStatus.success ? "bg-green-900/30 border-green-500" : "bg-red-900/30 border-red-500"}`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <AlertTitle className={postStatus.success ? "text-green-400" : "text-red-400"}>
+                  {postStatus.success ? "Success" : "Error"}
+                </AlertTitle>
+                <AlertDescription className="text-green-100">
+                  {postStatus.message}
+                </AlertDescription>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-green-500 h-8 w-8" 
+                onClick={handleClosePostStatus}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </Alert>
+        )}
+
         <Card className="flex-1 border-green-500 bg-black overflow-hidden flex flex-col">
           <CardHeader className="border-b border-green-500/30">
             <CardTitle className="text-lg">Chat with {currentAgent.name}</CardTitle>
@@ -188,7 +379,10 @@ export default function AgentChat({ params }) {
         </Card>
       </main>
 
-      <Dialog open={showPostDialog} onOpenChange={setShowPostDialog}>
+      <Dialog open={showPostDialog} onOpenChange={(open) => {
+        console.log("Dialog open state changing to:", open);
+        setShowPostDialog(open);
+      }}>
         <DialogContent className="bg-black border-green-500 text-green-500">
           <DialogHeader>
             <DialogTitle>Was this answer satisfactory?</DialogTitle>
@@ -205,6 +399,13 @@ export default function AgentChat({ params }) {
               <p>{lastQuestion}</p>
             </div>
 
+            <div className="flex items-center gap-2 text-green-400">
+              <Badge variant="outline" className="border-green-500 text-green-400">
+                Subject
+              </Badge>
+              <p>{currentAgent.subject}</p>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm text-green-400">Reward Amount (ASK tokens)</label>
               <div className="flex items-center gap-2">
@@ -219,21 +420,43 @@ export default function AgentChat({ params }) {
                 <Badge className="bg-green-700 text-white">ASK</Badge>
               </div>
             </div>
+
+            {status !== "authenticated" && (
+              <div className="flex items-center gap-2 text-yellow-500 p-2 border border-yellow-500/30 rounded-lg bg-yellow-900/20">
+                <AlertCircle className="h-4 w-4" />
+                <p className="text-sm">Please sign in with your wallet to post a question</p>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex sm:justify-between">
             <Button
               variant="outline"
               className="border-green-500 text-green-500"
-              onClick={() => setShowPostDialog(false)}
+              onClick={() => {
+                console.log("'It's Satisfactory' button clicked");
+                setShowPostDialog(false);
+              }}
             >
               It's Satisfactory
             </Button>
+            
             <Button
               className="bg-green-700 hover:bg-green-600 text-white border border-green-500"
-              onClick={handlePostQuestion}
+              onClick={() => {
+                console.log("'Post Question' button clicked");
+                handlePostQuestion();
+              }}
+              disabled={isPostingQuestion || status !== "authenticated"}
             >
-              Post Question
+              {isPostingQuestion ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Posting...
+                </>
+              ) : (
+                "Post Question"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -244,6 +467,8 @@ export default function AgentChat({ params }) {
 
 // Helper function to generate mock responses
 function generateResponse(agent, question) {
+  console.log(`Generating response for ${agent} agent with question:`, question);
+  
   const responses = {
     math: [
       "To solve this equation, you need to apply the chain rule of differentiation. For a function $$f(g(x))$$, the derivative is $$f'(g(x)) \\cdot g'(x)$$.",
@@ -263,5 +488,7 @@ function generateResponse(agent, question) {
   }
 
   const agentResponses = responses[agent] || responses.math
-  return agentResponses[Math.floor(Math.random() * agentResponses.length)]
+  const response = agentResponses[Math.floor(Math.random() * agentResponses.length)];
+  console.log("Generated response:", response);
+  return response;
 }

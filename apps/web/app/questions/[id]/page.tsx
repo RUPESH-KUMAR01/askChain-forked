@@ -1,8 +1,6 @@
-// Update the question detail page to include voting functionality and better answer submission
-
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -23,6 +21,10 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function QuestionDetail({ params }) {
+  // Unwrap params before accessing properties
+  const unwrappedParams = use(params);
+  const questionId = unwrappedParams.id;
+
   const [answers, setAnswers] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [answerContent, setAnswerContent] = useState("")
@@ -31,72 +33,123 @@ export default function QuestionDetail({ params }) {
   const [userVotes, setUserVotes] = useState({})
   const [showVoteDialog, setShowVoteDialog] = useState(false)
   const [voteInfo, setVoteInfo] = useState({ id: "", isUpvote: true })
+  const [error, setError] = useState(null)
+  const [walletAddress, setWalletAddress] = useState("0x1234...5678") // In real app, get from wallet connection
 
-  // Mock data for demonstration
+  // Fetch question data
   useEffect(() => {
-    // Simulate loading question data
-    setTimeout(() => {
-      setQuestion({
-        id: params.id,
-        title: "How do I solve this differential equation: $$\\frac{dy}{dx} = y^2 \\cdot \\sin(x)$$?",
-        content:
-          "I've been trying to solve this differential equation but I'm stuck. I tried separation of variables but it gets complicated. Can someone provide a step-by-step solution with the proper mathematical notation? $$\\frac{dy}{dx} = y^2 \\cdot \\sin(x)$$",
-        category: "Mathematics",
-        reward: 0.2,
-        author: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-        authorName: "MathEnthusiast",
-        createdAt: "2023-03-21T14:32:00Z",
-        expiresAt: "2023-03-22T14:32:00Z",
-      })
+    async function fetchQuestionData() {
+      try {
+        // In a real implementation, you would have an API route for fetching question details
+        const response = await fetch(`/api/questions/${questionId}`)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch question: ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        setQuestion(data)
+      } catch (err) {
+        console.error("Error fetching question:", err)
+        setError("Failed to load question details. Please try again later.")
+      }
+    }
 
-      setAnswers([
-        {
-          id: "a1",
-          content:
-            "This is a separable differential equation. We can rewrite it as: $$\\frac{1}{y^2}dy = \\sin(x)dx$$\n\nIntegrating both sides:\n$$\\int \\frac{1}{y^2}dy = \\int \\sin(x)dx$$\n\n$$-\\frac{1}{y} = -\\cos(x) + C$$\n\nSolving for y:\n$$y = \\frac{1}{\\cos(x) - C}$$\n\nWhere C is an arbitrary constant.",
-          author: "0x8912dF35F57f31A593d3e5D28C208C67DBB1b980",
-          authorName: "DiffEqPro",
-          createdAt: "2023-03-21T15:45:00Z",
-          upvotes: 3,
-          downvotes: 0,
-        },
-        {
-          id: "a2",
-          content:
-            "Another approach is to use an integrating factor. Let's define $$u = \\frac{1}{y}$$, then $$\\frac{du}{dx} = -\\frac{1}{y^2}\\frac{dy}{dx}$$.\n\nSubstituting our original equation:\n$$\\frac{du}{dx} = -\\sin(x)$$\n\nIntegrating:\n$$u = \\cos(x) + C$$\n\nSubstituting back:\n$$\\frac{1}{y} = \\cos(x) + C$$\n\nTherefore:\n$$y = \\frac{1}{\\cos(x) + C}$$",
-          author: "0x3F8C962eb167aD2f80C72b5F933511CcDF0719D6",
-          authorName: "CalcWizard",
-          createdAt: "2023-03-21T16:20:00Z",
-          upvotes: 5,
-          downvotes: 1,
-        },
-      ])
+    fetchQuestionData()
+  }, [questionId])
 
-      setIsLoading(false)
-    }, 1000)
-  }, [params.id])
+  // Fetch answers
+  useEffect(() => {
+    async function fetchAnswers() {
+      try {
+        const response = await fetch(`/api/answers?questionId=${questionId}`)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch answers: ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        
+        // Transform API data to match component's expected format
+        const formattedAnswers = data.map(answer => ({
+          id: answer.id,
+          content: answer.content,
+          author: answer.responderWallet,
+          authorName: formatWalletAddress(answer.responderWallet),
+          createdAt: answer.createdAt,
+          upvotes: answer.voteCount || 0, // Simplified for now, in reality you'd count up/down separately
+          downvotes: 0 // Placeholder - you'd need to modify your API to return this information
+        }))
+        
+        setAnswers(formattedAnswers)
+      } catch (err) {
+        console.error("Error fetching answers:", err)
+        setError("Failed to load answers. Please try again later.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  const handleSubmitAnswer = () => {
+    if (questionId) {
+      fetchAnswers()
+    }
+  }, [questionId])
+
+  // Format wallet address for display (0x1234...5678)
+  const formatWalletAddress = (address) => {
+    if (!address) return "Unknown"
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`
+  }
+
+  const handleSubmitAnswer = async () => {
     if (!answerContent.trim()) return
 
     setIsSubmitting(true)
+    setError(null)
 
-    // Simulate submitting answer
-    setTimeout(() => {
-      const newAnswer = {
-        id: `a${answers.length + 1}`,
-        content: answerContent,
-        author: "0x1234...5678", // Current user
-        authorName: "You",
-        createdAt: new Date().toISOString(),
-        upvotes: 0,
-        downvotes: 0,
+    try {
+      const response = await fetch('/api/answers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: walletAddress,
+          content: answerContent,
+          questionId: questionId
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to submit answer')
       }
 
-      setAnswers([...answers, newAnswer])
+      const result = await response.json()
+      
+      // After successful submission, refresh the answers list
+      const answersResponse = await fetch(`/api/answers?questionId=${questionId}`)
+      const answersData = await answersResponse.json()
+      
+      // Transform and update answers
+      const formattedAnswers = answersData.map(answer => ({
+        id: answer.id,
+        content: answer.content,
+        author: answer.responderWallet,
+        authorName: formatWalletAddress(answer.responderWallet),
+        createdAt: answer.createdAt,
+        upvotes: answer.voteCount || 0,
+        downvotes: 0
+      }))
+      
+      setAnswers(formattedAnswers)
       setAnswerContent("")
+    } catch (err) {
+      console.error("Error submitting answer:", err)
+      setError(err.message || "Failed to submit your answer. Please try again.")
+    } finally {
       setIsSubmitting(false)
-    }, 1500)
+    }
   }
 
   const handleVoteClick = (answerId, isUpvote) => {
@@ -113,39 +166,63 @@ export default function QuestionDetail({ params }) {
     setShowVoteDialog(true)
   }
 
-  const confirmVote = () => {
+  const confirmVote = async () => {
     const { id, isUpvote } = voteInfo
-
-    setAnswers(
-      answers.map((answer) => {
-        if (answer.id === id) {
-          if (isUpvote) {
-            // If previously downvoted, remove downvote
-            const downvotes = userVotes[id] === "down" ? answer.downvotes - 1 : answer.downvotes
-            return {
-              ...answer,
-              upvotes: answer.upvotes + 1,
-              downvotes,
-            }
-          } else {
-            // If previously upvoted, remove upvote
-            const upvotes = userVotes[id] === "up" ? answer.upvotes - 1 : answer.upvotes
-            return {
-              ...answer,
-              downvotes: answer.downvotes + 1,
-              upvotes,
+    
+    try {
+      // In a real implementation, you would have an API route for voting
+      const response = await fetch('/api/votes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          answerId: id,
+          walletAddress: walletAddress,
+          isUpvote: isUpvote
+        }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to submit vote')
+      }
+      
+      // Update local state to reflect vote
+      setAnswers(
+        answers.map((answer) => {
+          if (answer.id === id) {
+            if (isUpvote) {
+              // If previously downvoted, remove downvote
+              const downvotes = userVotes[id] === "down" ? answer.downvotes - 1 : answer.downvotes
+              return {
+                ...answer,
+                upvotes: answer.upvotes + 1,
+                downvotes,
+              }
+            } else {
+              // If previously upvoted, remove upvote
+              const upvotes = userVotes[id] === "up" ? answer.upvotes - 1 : answer.upvotes
+              return {
+                ...answer,
+                downvotes: answer.downvotes + 1,
+                upvotes,
+              }
             }
           }
-        }
-        return answer
-      }),
-    )
+          return answer
+        }),
+      )
 
-    // Update user votes
-    setUserVotes({
-      ...userVotes,
-      [id]: isUpvote ? "up" : "down",
-    })
+      // Update user votes
+      setUserVotes({
+        ...userVotes,
+        [id]: isUpvote ? "up" : "down",
+      })
+    } catch (err) {
+      console.error("Error submitting vote:", err)
+      setError(err.message || "Failed to submit your vote. Please try again.")
+    }
 
     setShowVoteDialog(false)
   }
@@ -179,6 +256,19 @@ export default function QuestionDetail({ params }) {
     )
   }
 
+  if (error && !question) {
+    return (
+      <div className="min-h-screen bg-black text-green-500 flex items-center justify-center flex-col gap-4">
+        <p className="text-red-400">{error}</p>
+        <Link href="/dashboard?tab=questions">
+          <Button className="bg-green-700 hover:bg-green-600 text-white border border-green-500">
+            Return to Questions
+          </Button>
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-black text-green-500 flex flex-col">
       <Script
@@ -200,110 +290,129 @@ export default function QuestionDetail({ params }) {
             <h1 className="text-xl font-bold">Question Details</h1>
           </div>
 
-          <div className="ml-auto text-sm text-green-400">Time remaining: {getTimeRemaining()}</div>
+          {question && (
+            <div className="ml-auto text-sm text-green-400">Time remaining: {getTimeRemaining()}</div>
+          )}
         </div>
       </header>
 
       <main className="flex-1 container mx-auto p-4 flex flex-col gap-6">
+        {/* Error notification */}
+        {error && (
+          <div className="bg-red-900/30 border border-red-500 text-red-400 p-4 rounded-md">
+            {error}
+          </div>
+        )}
+
         {/* Question Card */}
-        <Card className="border-green-500 bg-black">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <Badge variant="outline" className="border-green-500 text-green-400">
-                {question.category}
-              </Badge>
-              <div className="flex flex-col items-end">
-                <Badge className="bg-green-700 text-white mb-2">{question.reward} ASK</Badge>
+        {question && (
+          <Card className="border-green-500 bg-black">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <Badge variant="outline" className="border-green-500 text-green-400">
+                  {question.category}
+                </Badge>
+                <div className="flex flex-col items-end">
+                  <Badge className="bg-green-700 text-white mb-2">{question.reward} ASK</Badge>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2 mt-2">
-              <Avatar className="h-6 w-6 border border-green-500">
-                <AvatarImage src="/placeholder.svg?height=24&width=24" />
-                <AvatarFallback className="bg-green-900/30 text-green-500 text-xs">
-                  {question.authorName.substring(0, 2)}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-green-400">{question.authorName}</span>
-            </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Avatar className="h-6 w-6 border border-green-500">
+                  <AvatarImage src="/placeholder.svg?height=24&width=24" />
+                  <AvatarFallback className="bg-green-900/30 text-green-500 text-xs">
+                    {formatWalletAddress(question.author).substring(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-green-400">{formatWalletAddress(question.author)}</span>
+              </div>
 
-            <CardTitle className="text-xl mt-4">
+              <CardTitle className="text-xl mt-4">
+                <div
+                  className="latex-content"
+                  dangerouslySetInnerHTML={{
+                    __html: question.title.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
+                  }}
+                />
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent>
               <div
                 className="latex-content"
                 dangerouslySetInnerHTML={{
-                  __html: question.title.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
+                  __html: question.content.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
                 }}
               />
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent>
-            <div
-              className="latex-content"
-              dangerouslySetInnerHTML={{
-                __html: question.content.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
-              }}
-            />
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Answers Section */}
         <div className="space-y-4">
           <h2 className="text-xl font-bold">Answers ({answers.length})</h2>
 
-          {answers.map((answer) => (
-            <Card key={answer.id} className="border-green-500 bg-black">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6 border border-green-500">
-                    <AvatarImage src="/placeholder.svg?height=24&width=24" />
-                    <AvatarFallback className="bg-green-900/30 text-green-500 text-xs">
-                      {answer.authorName.substring(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm text-green-400">{answer.authorName}</span>
-                  <span className="text-xs text-green-400/60">{new Date(answer.createdAt).toLocaleString()}</span>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                <div
-                  className="latex-content whitespace-pre-line"
-                  dangerouslySetInnerHTML={{
-                    __html: answer.content.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
-                  }}
-                />
+          {answers.length === 0 ? (
+            <Card className="border-green-500 bg-black">
+              <CardContent className="p-6 text-center text-green-400">
+                No answers yet. Be the first to answer this question!
               </CardContent>
-
-              <CardFooter className="pt-2 flex justify-end">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-8 w-8 ${userVotes[answer.id] === "up" ? "text-green-400 bg-green-900/30" : "text-green-500"}`}
-                      onClick={() => handleVoteClick(answer.id, true)}
-                    >
-                      <ThumbsUp className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm">{answer.upvotes}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-8 w-8 ${userVotes[answer.id] === "down" ? "text-red-400 bg-red-900/30" : "text-green-500"}`}
-                      onClick={() => handleVoteClick(answer.id, false)}
-                    >
-                      <ThumbsDown className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm">{answer.downvotes}</span>
-                  </div>
-                </div>
-              </CardFooter>
             </Card>
-          ))}
+          ) : (
+            answers.map((answer) => (
+              <Card key={answer.id} className="border-green-500 bg-black">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6 border border-green-500">
+                      <AvatarImage src="/placeholder.svg?height=24&width=24" />
+                      <AvatarFallback className="bg-green-900/30 text-green-500 text-xs">
+                        {answer.authorName.substring(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm text-green-400">{answer.authorName}</span>
+                    <span className="text-xs text-green-400/60">{new Date(answer.createdAt).toLocaleString()}</span>
+                  </div>
+                </CardHeader>
+
+                <CardContent>
+                  <div
+                    className="latex-content whitespace-pre-line"
+                    dangerouslySetInnerHTML={{
+                      __html: answer.content.replace(/\$\$(.*?)\$\$/g, (_, latex) => `\$$${latex}\$$`),
+                    }}
+                  />
+                </CardContent>
+
+                <CardFooter className="pt-2 flex justify-end">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-8 w-8 ${userVotes[answer.id] === "up" ? "text-green-400 bg-green-900/30" : "text-green-500"}`}
+                        onClick={() => handleVoteClick(answer.id, true)}
+                      >
+                        <ThumbsUp className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm">{answer.upvotes}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-8 w-8 ${userVotes[answer.id] === "down" ? "text-red-400 bg-red-900/30" : "text-green-500"}`}
+                        onClick={() => handleVoteClick(answer.id, false)}
+                      >
+                        <ThumbsDown className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm">{answer.downvotes}</span>
+                    </div>
+                  </div>
+                </CardFooter>
+              </Card>
+            ))
+          )}
 
           {/* Submit Answer Form */}
           <Card className="border-green-500 bg-black">
@@ -319,8 +428,7 @@ export default function QuestionDetail({ params }) {
                 className="min-h-[150px] bg-black border-green-500 text-green-100"
               />
               <p className="text-xs text-green-400 mt-2">
-                Tip: Use $$ around mathematical expressions for LaTeX rendering. Example: $$\frac{dy}
-                {dx} = y^2 \cdot \sin(x)$$
+                Tip: Use $$ around mathematical expressions for LaTeX rendering. Example: $$\frac{dy}{dx} = y^2 \cdot \sin(x)$$
               </p>
             </CardContent>
 
@@ -378,4 +486,3 @@ export default function QuestionDetail({ params }) {
     </div>
   )
 }
-

@@ -21,16 +21,17 @@ model User {
 }
 
 model Question {
-  id           String    @id @default(cuid())
-  content      String
-  subject      Subject
-  reward       Float
-  asker        User      @relation(fields: [askerId], references: [id])
-  askerId      String
-  rewarded     Boolean   @default(false)
-  rewardAt     DateTime
-  answers      Answer[]
-  createdAt    DateTime  @default(now())
+  id String @id @default(cuid())
+  content String
+  pinataCid String
+  subject Subject
+  reward Float
+  asker User @relation(fields: [askerId], references: [id])
+  askerId String
+  rewarded Boolean @default(false)
+  rewardAt DateTime
+  answers Answer[]
+  createdAt DateTime @default(now())
 }
 
 model Answer {
