@@ -1,4 +1,5 @@
 # Logs
+unsloth_compiled_cache
 logs
 *.log
 npm-debug.log*
