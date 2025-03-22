@@ -133,11 +133,10 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/users?walletAddress=${walletAddress}`)
       if(!response.ok){
-        throw new Error(`Failed to fetch votes: ${response.statusText}`)
+        return
       }
 
       const data = await response.json()
-      console.log(data)
       setVotes(data.upvotes)
       setAnswers(data.votedAnswers.length)
     }catch (err) {
@@ -147,7 +146,6 @@ export default function Dashboard() {
   // On mount, fetch community questions
   useEffect(() => {
     fetchQuestions()
-    // fetchAnswers()
     fetchVotes()
   }, [walletAddress])
 

@@ -4,7 +4,7 @@ import { signIn, signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
-import { Loader2, AlertCircle } from "lucide-react"
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { BrowserProvider } from "ethers";
 
@@ -13,7 +13,9 @@ export default function ConnectWallet() {
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
-
+  if(session){
+    router.push("/dashboard");
+  }
   const connectWallet = async () => {
     setIsConnecting(true)
     setError("")
@@ -74,11 +76,13 @@ export default function ConnectWallet() {
           )}
           
           {session ? (
-            <div className="p-4 border border-green-500 rounded-md">
-              <p className="text-sm text-green-400">Connected Wallet:</p>
-              <p className="font-mono break-all">{session.user.walletAddress}</p>
-              <p className="mt-2 text-sm text-green-400">Registration Fee: 1 ETH</p>
-              <p className="text-sm text-green-400">Tokens to Receive: 100 ASK</p>
+              <div className="min-h-screen bg-black text-green-500 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="animate-spin">
+                  <RefreshCw className="h-8 w-8" />
+                </div>
+                <p className="text-green-400">Redirecting to dashboard...</p>
+              </div>
             </div>
           ) : (
             <Button onClick={connectWallet} disabled={isConnecting} className="w-full bg-green-700 hover:bg-green-600">
