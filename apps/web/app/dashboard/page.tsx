@@ -13,11 +13,12 @@ import Script from "next/script"
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
+  const walletAddress = session?.user?.walletAddress
   const [askTokens, setAskTokens] = useState(100)
   const [connectedAddress, setConnectedAddress] = useState("Not connected")
   const [questions, setQuestions] = useState([]);
   const [myQuestions, setMyQuestions] = useState([]);
-  const walletAddress = session?.user?.walletAddress
+  
   const fetchQuestions = () => {
     fetch("/api/questions")
       .then((res) => res.json())
